@@ -1,12 +1,37 @@
 import numpy as np
 import re
 import unidecode
+import nltk
+import spacy
+from word2number import w2n
+from nltk.corpus import stopwords as STOPWORDS, wordnet
+from nltk.stem import WordNetLemmatizer
 from torchtext.datasets import AG_NEWS
 from transformers import AutoTokenizer
 from string import punctuation as PUNCTUATION, digits as DIGITS
-from nltk.corpus import stopwords as STOPWORDS
 
-# nlp = spacy.load("en_core_web_md")
+nlp = spacy.load("en_core_web_lg")
+nltk.download('averaged_perceptron_tagger')
+nltk.download('wordnet')
+nltk.download('omw-1.4')
+
+
+def get_pos(word):
+    tag = nltk.pos_tag([word])[0][1][0].lower()
+    mappings = dict(a=wordnet.ADJ, n=wordnet.NOUN, v=wordnet.VERB, 
+                    r=wordnet.ADV, j=wordnet.ADJ, s=wordnet.ADJ_SAT)
+    return mappings.get(tag, wordnet.NOUN)
+
+def spacy_lemmatizer(text):
+    doc = nlp(text)
+    return [token.lemma_ for token in doc]
+
+
+nltk_wnl = WordNetLemmatizer()
+def nltk_lemmatizer(text):
+    text = text.split()
+    return [nltk_wnl.lemmatize(w, get_pos(w)) for w in text]
+
 
 class Tokenizer:
 
@@ -117,17 +142,40 @@ class Process:
 
     def replace_numbers(self, data, lower=True):
 
-        pass
+        for i, text in enumerate(data):
+            text = text.lower() if lower else text
+            doc = nlp(text)
+            tokens = []
+            for token in doc:
+                if token.pos_ == "NUM":
+                    try:
+                        tokens.append(str(w2n.word_to_num(token.text)))
+                    except:
+                        tokens.append(token.text)
+                else:
+                    tokens.append(token.text)
+            data[i] = " ".join(tokens)
 
+    def lemmatize(self, data, lemmatizer=None, lower=True):
+
+        if lemmatizer is None:
+            lemmatizer = spacy_lemmatizer
+        
+        for i, text in enumerate(data):
+            text = text.lower() if lower else text
+            text = lemmatizer(text)
+            data[i] = " ".join(text)
 
     def preprocess(self, data, operations=None):
 
         if operations is None:
             operations = {"accent": dict(), "html": dict(pattern=None), "punctuation": dict(punctuation=None),
-                        "digits": dict(digits=None), "stopwords": dict(stopwords=None), "whitespaces": dict(), }
+                        "numbers": dict(), "stopwords": dict(stopwords=None), "lemmatize": dict(lemmatizer=None), 
+                        "whitespaces": dict(),}
 
         mappings = {"html": self.remove_html, "punctuation": self.remove_punctuation, "digits": self.remove_digits, 
-                    "stopwords": self.remove_stopwords, "whitespaces": self.remove_whitespaces, "accents": self.replace_accents}
+                    "stopwords": self.remove_stopwords, "whitespaces": self.remove_whitespaces, "accents": self.replace_accents,
+                    "numbers": self.replace_numbers, "lemmatize": self.lemmatize}
 
         for name, kwargs in operations.items():
             operation = mappings[name]
@@ -154,19 +202,22 @@ if __name__ == '__main__':
 
     data = [text for label, text in list(iter(AG_NEWS('./data', split='test')))]
     process = Process()
-    print(1, data[10])
+    print(1, data[79])
     process.remove_punctuation(data)
-    print(2, data[10])
+    print(2, data[79])
     process.remove_words(data, ["technology", "companies"])
-    print(3, data[10])
-    process.remove_digits(data)
-    print(4, data[10])
+    print(3, data[79])
+    # process.remove_digits(data)
+    process.replace_numbers(data)
+    print(4, data[79])
     process.remove_stopwords(data)
-    print(5, data[10])
+    print(5, data[79])
+    process.lemmatize(data, lemmatizer=nltk_lemmatizer)
+    print(6, data[79])
 
     # TOKENIZING TEXT COMPLETELY
 
     tokens = Tokenizer().encode(data, model=True)
-    print(1, tokens[10])
+    print(1, tokens[79])
     decoded = Tokenizer().decode(tokens)
-    print(2, decoded[10])
+    print(2, decoded[79])
