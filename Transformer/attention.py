@@ -44,6 +44,7 @@ class MultiHeadAttention(nn.Module):
         if dk % nhead != 0:
             raise ValueError("nhead must be a modulo of dk")
 
+        # create single head derived from even splits, weight out shape: (dk, dk)
         self.dk = dk
         self.dh = dk // nhead
         self.nhead = nhead
@@ -67,8 +68,6 @@ class MultiHeadAttention(nn.Module):
         concat = attention.reshape(batch_size, -1, self.dk)
         projection = self.wo(concat)
         return projection
-
-
 
 
 if __name__ == "__main__":
