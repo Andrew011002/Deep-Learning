@@ -5,19 +5,19 @@ import numpy as np
 
 class AttentionHead(nn.Module):
 
-    def __init__(self, dk, dropout=0.1) -> None:
+    def __init__(self, dk, bias=False, dropout=0.1) -> None:
         super().__init__()
         # weights for q,k, & v shape : (dk, dk)
-        self.wq = nn.Linear(dk, dk)
-        self.wk = nn.Linear(dk, dk)
-        self.wv = nn.Linear(dk, dk)
+        self.wq = nn.Linear(dk, dk, bias=bias)
+        self.wk = nn.Linear(dk, dk, bias=bias)
+        self.wv = nn.Linear(dk, dk, bias=bias)
         self.dk = torch.Tensor([dk])
-        self.dropout = dropout
+        self.dropout = nn.Dropout(dropout) # for dropping scores
         
 
     def forward(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask=None):
-        # inshapes = q : (batch_size, 1, dk) k, v : (batch_size, seq_len, dk)
-        batch_size = q.size(0)
+        # inshapes (single head) = q : (batch_size, 1, dk) k, v : (batch_size, seq_len, dk)
+        # inshapes (multi head) = q : (batch_size, 1, nhead, dk) k, v : (batch_size, seq_len, nhead, dk)
 
         # initial linear projections
         q = self.wq(q)
@@ -26,23 +26,64 @@ class AttentionHead(nn.Module):
 
         # scaled dot product
         norm = 1 / torch.sqrt(self.dk)
-        s = torch.matmul(q, k.view((batch_size, int(self.dk.item()), -1))) # (batch_size, 1, seq_len)    
-        s /= norm
-        
+        s = torch.matmul(q, k.transpose(-2, -1)) * norm # (batch_size, 1, seq_len)    
+
         # normalization
-        a = torch.exp(s) / torch.sum(torch.exp(s), dim=2, keepdim=True) # (batch_size, 1, seq_len)
+        a = torch.exp(s) / torch.sum(torch.exp(s), dim=-1, keepdim=True) # (batch_size, 1, seq_len)
         a = self.dropout(a)
 
         # matmul for for attention values
         attention = torch.matmul(a, v) # (batch_size, 1, dk)
         return attention
 
+class MultiHeadAttention(nn.Module):
+
+    def __init__(self, nhead, dk, bias=False, dropout=0.1) -> None:
+        super().__init__()
+        # heads must be evenly divisible by dk
+        if dk % nhead != 0:
+            raise ValueError("nhead must be a modulo of dk")
+
+        self.dk = dk
+        self.dh = dk // nhead
+        self.nhead = nhead
+        self.head = AttentionHead(self.dh, bias, dropout)
+        self.wo = nn.Linear(dk, dk, bias=bias)
+
+    def forward(self, q, k, v, mask=None):
+        # inshapes (single head) = q : (batch_size, 1, dk) k, v : (batch_size, seq_len, dk)
+        batch_size = q.size(0)
+
+        # split into nheads shape = q : (batch_size, 1, nhead, dh) k & v : (batch_size, seq_len, nhead, dh)
+        # -> attention head reshape = q : (batch_size, nhead, 1, dh) k & v : (batch_size, nhead, seq_len, dh)
+        q = q.reshape(batch_size, -1, self.nhead, self.dh).permute(0, 2, 1, 3)
+        k = k.reshape(batch_size, -1, self.nhead, self.dh).permute(0, 2, 1, 3)
+        v = v.reshape(batch_size, -1, self.nhead, self.dh).permute(0, 2, 1, 3)
+
+        # calc attention shape : (batch_size, nhead, 1, dh)
+        attention = self.head(q, k, v, mask=mask)
+
+        # concat
+        concat = attention.reshape(batch_size, -1, self.dk)
+        projection = self.wo(concat)
+        return projection
+
+
+
 
 if __name__ == "__main__":
-    q = torch.rand((1, 1, 5))
-    k = torch.rand((1, 6, 5))
+    q = torch.rand((16, 1, 5))
+    k = torch.rand((16, 10, 5))
     v = k
 
-    head = AttentionHead(5, 5)
+    head = AttentionHead(5)
     attention = head(q, k, v)
+    print(attention.size())
+
+    q = torch.rand((16, 1, 512))
+    k = torch.rand((16, 10, 512))
+    v = k
+
+    multihead = MultiHeadAttention(8, 512)
+    attention = multihead(q, k, v)
     print(attention.size())
