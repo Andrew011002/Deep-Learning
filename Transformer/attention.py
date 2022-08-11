@@ -1,11 +1,9 @@
 import torch
 import torch.nn as nn
-import numpy as np
-
 
 class AttentionHead(nn.Module):
 
-    def __init__(self, dk, bias=False, dropout=0.1) -> None:
+    def __init__(self, dk,bias=False, dropout=0.1) -> None:
         super().__init__()
         # weights for q,k, & v shape : (dk, dk)
         self.wq = nn.Linear(dk, dk, bias=bias)
@@ -15,7 +13,7 @@ class AttentionHead(nn.Module):
         self.dropout = nn.Dropout(dropout) # for dropping scores
         
 
-    def forward(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask=None):
+    def forward(self, q, k, v, mask=None):
         # inshapes (single head) = q : (batch_size, 1, dk) k, v : (batch_size, seq_len, dk)
         # inshapes (multi head) = q : (batch_size, 1, nhead, dk) k, v : (batch_size, seq_len, nhead, dk)
 
@@ -29,12 +27,12 @@ class AttentionHead(nn.Module):
         s = torch.matmul(q, k.transpose(-2, -1)) * norm # (batch_size, 1, seq_len)    
 
         # normalization
-        a = torch.exp(s) / torch.sum(torch.exp(s), dim=-1, keepdim=True) # (batch_size, 1, seq_len)
-        a = self.dropout(a)
+        attention = torch.exp(s) / torch.sum(torch.exp(s), dim=-1, keepdim=True) # (batch_size, 1, seq_len)
+        attention = self.dropout(attention)
 
         # matmul for for attention values
-        attention = torch.matmul(a, v) # (batch_size, 1, dk)
-        return attention
+        output = torch.matmul(attention, v) # (batch_size, 1, dk)
+        return output
 
 class MultiHeadAttention(nn.Module):
 
@@ -63,24 +61,26 @@ class MultiHeadAttention(nn.Module):
 
         # calc attention shape : (batch_size, nhead, 1, dh)
         attention = self.head(q, k, v, mask=mask)
-
+        
         # concat
         concat = attention.reshape(batch_size, -1, self.dk)
+
+        # project
         projection = self.wo(concat)
         return projection
 
 
 if __name__ == "__main__":
-    q = torch.rand((16, 1, 5))
-    k = torch.rand((16, 10, 5))
+    q = torch.rand((32, 1, 512))
+    k = torch.rand((32, 10, 512))
     v = k
 
-    head = AttentionHead(5)
+    head = AttentionHead(512)
     attention = head(q, k, v)
     print(attention.size())
 
-    q = torch.rand((16, 1, 512))
-    k = torch.rand((16, 10, 512))
+    q = torch.rand((64, 1, 512))
+    k = torch.rand((64, 10, 512))
     v = k
 
     multihead = MultiHeadAttention(8, 512)
