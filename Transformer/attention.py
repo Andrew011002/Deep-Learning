@@ -14,6 +14,8 @@ class ScaledDotProductAttention(nn.Module):
         # inputs are projected shape = q: (batch_size, q_len, d_k) k & v : (batch_size, seq_len, d_k)
         similarities = torch.matmul(q, k.transpose(-2, -1)) * self.norm
         attention = self.softmax(similarities)
+        if mask is not None:
+            attention.masked_fill(mask == 0, float("-inf"))
         attention = self.dropout(attention)
         values = torch.matmul(attention, v)
         return values, attention
@@ -55,6 +57,8 @@ class MultiHeadAttention(nn.Module):
         values = self.wo(values)
         values = self.dropout(values)
         return values, attention
+
+
 
 
 if __name__ == "__main__":
