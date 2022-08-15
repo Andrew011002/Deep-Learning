@@ -6,19 +6,25 @@ class ScaledDotProductAttention(nn.Module):
 
     def __init__(self, dk, dropout=0.1) -> None:
         super().__init__()
-        self.norm = 1 / torch.sqrt(torch.Tensor([dk]))
+        self.norm = 1 / torch.sqrt(torch.Tensor([dk])).item()
         self.softmax = nn.Softmax(dim=-1)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, q, k, v, mask=None):
         # inputs are projected shape = q: (batch_size, q_len, d_k) k & v : (batch_size, seq_len, d_k)
         similarities = torch.matmul(q, k.transpose(-2, -1)) * self.norm
-        attention = self.softmax(similarities)
+
+        # apply mask (if required)
         if mask is not None:
-            attention.masked_fill(mask == 0, float("-inf"))
+            similarities = similarities.masked_fill(mask == 0, -1e9)
+
+        # compute attention weights
+        attention = self.softmax(similarities)
         attention = self.dropout(attention)
-        values = torch.matmul(attention, v)
-        return values, attention
+
+        # compute context
+        context = torch.matmul(attention, v)
+        return context, attention
 
 class MultiHeadAttention(nn.Module):
 
@@ -48,27 +54,37 @@ class MultiHeadAttention(nn.Module):
         v = self.wv(v).view(batch_size, -1, self.nhead, self.dk).transpose(1, 2)
 
         # att scores & weights shape: attention = (batch_size, nhead, q_len, seq_len) values = (batch_size, nhead, q_len, dk)
-        values, attention = self.scaled_dot_prod_attn(q, k, v, mask=mask)
+        context, attention = self.scaled_dot_prod_attn(q, k, v, mask=mask)
 
-        # concat shape: attention (batch_size, nheads, q_len, seq_len) values = (batch_size, q_len, dm)
-        values = values.transpose(1, 2).contiguous().view(batch_size, -1, self.dm)
+        # concat shape: attention (batch_size, nheads, q_len, seq_len) context = (batch_size, q_len, dm)
+        context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.dm)
 
-        # project and dropout shape: values = (batch_size, q_len, dm)
-        values = self.wo(values)
-        values = self.dropout(values)
-        return values, attention
+        # project and dropout shape: context = (batch_size, q_len, dm)
+        context = self.wo(context)
+        context = self.dropout(context)
+        return context, attention
 
+
+def create_subsequent_mask(seq_len):
+    # create a diagnal of 1's (left) 0's (right)
+    mask = torch.triu(torch.ones(seq_len, seq_len) == 1)
+    return mask.float().transpose(0, 1)
+
+def create_padded_mask(src, pad_val):
+    pass
 
 
 
 if __name__ == "__main__":
-    q = torch.rand((64, 5, 512))
+    q = torch.rand((64, 10, 512))
     k = torch.rand((64, 10, 512))
     v = k
+    
+    mask = create_subsequent_mask(10)
 
     # MULTI-HEAD CALCULATION
     multihead = MultiHeadAttention(512, 8)
-    values, attention = multihead(q, k, v)
-    print(attention.size(), values.size())
+    values, attention = multihead(q, k, v, mask=mask)
+
     
 
