@@ -66,49 +66,20 @@ class MultiHeadAttention(nn.Module):
         return context, attention
 
 
-def create_subsequent_mask(self, seq_len):
-    # create a diagnal of 1's (left) 0's (right)
-    mask = torch.triu(torch.ones(seq_len, seq_len) == 1)
-    return mask.int().transpose(0, 1)
-
-def create_padded_mask(self, seq, pad_val):
-    return seq != pad_val
-
-
-
-def create_subsequent_mask(seq):
-    seq_len = seq.size(1)
-    # create a diagnal of 1's (left) 0's (right)
-    mask = torch.triu(torch.ones(seq_len, seq_len) == 1)
-    return mask.int().transpose(0, 1)
-
-def create_padded_mask(seq, pad_val):
-    return seq != pad_val
-
-def create_mask(src, tgt, pad_val):
-    src_mask = create_padded_mask(src, pad_val)
-    tgt_mask = create_padded_mask(tgt, pad_val) & create_subsequent_mask(tgt)
-    return src_mask, tgt_mask
     
 
 
 if __name__ == "__main__":
-    # q = torch.rand((64, 10, 512))
-    # k = torch.rand((64, 10, 512))
-    # v = k
-    
-    # mask = create_subsequent_mask(10)
+    q = torch.rand((64, 10, 512))
+    k = torch.rand((64, 10, 512))
+    v = k
 
-    # # MULTI-HEAD CALCULATION
-    # multihead = MultiHeadAttention(512, 8)
-    # values, attention = multihead(q, k, v, mask=mask)
+    # MULTI-HEAD CALCULATION
+    multihead = MultiHeadAttention(512, 8)
+    values, attention = multihead(q, k, v, mask=None)
+    print(attention.size(), values.size())
 
-    inputs = torch.Tensor([[4, 5, 8, 10, 21, 18, 15, 0, 0, 0]])
-    src = inputs
-    tgt = inputs[:, 1:]
 
-    src_mask, tgt_mask = create_mask(src, tgt, pad_val=0)
-    print(src_mask, f"\n{tgt_mask}")
 
     
     
