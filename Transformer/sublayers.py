@@ -66,7 +66,25 @@ class MultiHeadAttention(nn.Module):
         return context, attention
 
 
-    
+class Norm(nn.Module):
+
+    def __init__(self, d_model, epsilon=1e-6):
+        super().__init__()
+        self.scale = nn.Parameter(torch.ones(d_model))
+        self.bias = nn.Parameter(torch.zeros(d_model))
+        self.epsilon = epsilon
+
+    def forward(self, x):
+        # input shape: (batch_size, seq_len, d_model)
+
+        # calculate mean & standard deviation
+        mean = torch.mean(x, dim=-1, keepdim=True)
+        var = torch.mean(torch.pow(x - mean, 2), dim=-1, keepdim=True)
+        std = torch.sqrt(var + self.epsilon)
+
+        # normalize
+        norm = (x - mean) / std * self.scale + self.bias
+        return norm
 
 
 if __name__ == "__main__":
@@ -78,6 +96,11 @@ if __name__ == "__main__":
     multihead = MultiHeadAttention(512, 8)
     values, attention = multihead(q, k, v, mask=None)
     print(attention.size(), values.size())
+
+    # NORM LAYER
+    norm = Norm(512)
+    normed = norm(values)
+    print(normed.size())
 
 
 
