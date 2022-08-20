@@ -202,22 +202,22 @@ if __name__ == '__main__':
 
     data = [text for label, text in list(iter(AG_NEWS('./data', split='test')))]
     process = Process()
-    print(1, data[79])
+    print("(Original)", data[79])
     process.remove_punctuation(data)
-    print(2, data[79])
+    print("(Remove Punctuation)", data[79])
     process.remove_words(data, ["technology", "companies"])
-    print(3, data[79])
+    print("(Remove Specific Words)", data[79])
     # process.remove_digits(data)
     process.replace_numbers(data)
-    print(4, data[79])
+    print("(Replace Numbers)", data[79])
     process.remove_stopwords(data)
-    print(5, data[79])
+    print("(Remove Stopwords)", data[79])
     process.lemmatize(data, lemmatizer=nltk_lemmatizer)
-    print(6, data[79])
+    print("(Lemmatize Text)", data[79])
 
     # TOKENIZING TEXT COMPLETELY
 
     tokens = Tokenizer().encode(data, model=True)
-    print(1, tokens[79])
+    print("(Tokens)", tokens[79])
     decoded = Tokenizer().decode(tokens)
-    print(2, decoded[79])
+    print("(Token Values)", decoded[79])
