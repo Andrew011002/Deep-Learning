@@ -68,16 +68,16 @@ class MultiHeadAttention(nn.Module):
 
 class Norm(nn.Module):
 
-    def __init__(self, d_model, eps=1e-6):
+    def __init__(self, dm, eps=1e-6):
         super().__init__()
-        self.gamma = nn.Parameter(torch.ones(d_model))
-        self.beta = nn.Parameter(torch.zeros(d_model))
+        self.gamma = nn.Parameter(torch.ones(dm))
+        self.beta = nn.Parameter(torch.zeros(dm))
         self.eps = eps
 
     def forward(self, x):
-        # input shape: (batch_size, seq_len, d_model)
+        # input shape: (batch_size, seq_len, dm)
 
-        # calculate mean & standard deviation (along d_model)
+        # calculate mean & standard deviation (along dm)
         mean = torch.mean(x, dim=-1, keepdim=True)
         var = torch.mean(torch.pow(x - mean, 2), dim=-1, keepdim=True)
         std = torch.sqrt(var + self.eps)
@@ -85,6 +85,26 @@ class Norm(nn.Module):
         # normalize
         norm = (x - mean) / std
         return norm * self.gamma + self.beta
+
+
+class FeedForwardNetwork(nn.Module):
+
+    def __init__(self, dm, dff, dropout=0.1) -> None:
+        super().__init__()
+        self.w1 = nn.Linear(dm, dff)
+        self.w2 = nn.Linear(dff, dm)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        # inshape (batch_size, seq_len, dm)
+        
+        # first linear transform with ReLU shape: (batch_size, seq_len, dff)
+        x = self.relu(self.w1(x))
+
+        # second linear transform shape: (batch_size, seq_len, dm)
+        out = self.w2(x)
+        return self.dropout(out)
 
 
 if __name__ == "__main__":
@@ -101,6 +121,11 @@ if __name__ == "__main__":
     norm = Norm(512)
     normed = norm(values)
     print(normed.size())
+
+    # FEED FORWARD NETWORK
+    feedforward = FeedForwardNetwork(512, 2048)
+    transform = feedforward(normed)
+    print(transform.size())
 
 
 

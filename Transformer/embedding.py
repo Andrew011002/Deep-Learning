@@ -10,6 +10,7 @@ class Embeddings(nn.Module):
         self.embedding = nn.Embedding(n_tokens, d_model, pad_idx, **kwargs)
 
     def forward(self, x):
+        # inshape: (batch_size, seq_len)
         return self.embedding(x)
 
 
