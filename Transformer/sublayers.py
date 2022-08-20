@@ -7,7 +7,7 @@ class ScaledDotProductAttention(nn.Module):
 
     def __init__(self, dk, dropout=0.1) -> None:
         super().__init__()
-        self.norm = 1 / torch.sqrt(torch.Tensor([dk])).item()
+        self.norm = 1 / torch.sqrt(torch.Tensor([dk]))
         self.softmax = nn.Softmax(dim=-1)
         self.dropout = nn.Dropout(dropout)
 
@@ -68,23 +68,23 @@ class MultiHeadAttention(nn.Module):
 
 class Norm(nn.Module):
 
-    def __init__(self, d_model, epsilon=1e-6):
+    def __init__(self, d_model, eps=1e-6):
         super().__init__()
-        self.scale = nn.Parameter(torch.ones(d_model))
-        self.bias = nn.Parameter(torch.zeros(d_model))
-        self.epsilon = epsilon
+        self.gamma = nn.Parameter(torch.ones(d_model))
+        self.beta = nn.Parameter(torch.zeros(d_model))
+        self.eps = eps
 
     def forward(self, x):
         # input shape: (batch_size, seq_len, d_model)
 
-        # calculate mean & standard deviation
+        # calculate mean & standard deviation (along d_model)
         mean = torch.mean(x, dim=-1, keepdim=True)
         var = torch.mean(torch.pow(x - mean, 2), dim=-1, keepdim=True)
-        std = torch.sqrt(var + self.epsilon)
+        std = torch.sqrt(var + self.eps)
 
         # normalize
-        norm = (x - mean) / std * self.scale + self.bias
-        return norm
+        norm = (x - mean) / std
+        return norm * self.gamma + self.beta
 
 
 if __name__ == "__main__":
