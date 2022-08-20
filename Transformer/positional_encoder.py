@@ -5,7 +5,7 @@ import torch.nn as nn
 class PositionalEncoder(nn.Module):
 
     def __init__(self, d_model, max_len, p_drop=0.1) -> None:
-        super(PositionalEncoder, self).__init__()
+        super().__init__()
         self.dropout = nn.Dropout(p_drop)
 
         # pos shape: (max seq_len, 1) dim: (d_model, )
