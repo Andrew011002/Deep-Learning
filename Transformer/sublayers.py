@@ -5,11 +5,10 @@ import numpy as np
 
 class ScaledDotProductAttention(nn.Module):
 
-    def __init__(self, dk, dropout=0.1) -> None:
+    def __init__(self, dk) -> None:
         super().__init__()
         self.norm = 1 / torch.sqrt(torch.Tensor([dk]))
         self.softmax = nn.Softmax(dim=-1)
-        self.dropout = nn.Dropout(dropout)
 
     def forward(self, q, k, v, mask=None):
         # inputs are projected shape = q: (batch_size, q_len, d_k) k & v : (batch_size, seq_len, d_k)
@@ -21,7 +20,6 @@ class ScaledDotProductAttention(nn.Module):
 
         # compute attention weights
         attention = self.softmax(similarities)
-        attention = self.dropout(attention)
 
         # compute context
         context = torch.matmul(attention, v)
@@ -29,7 +27,7 @@ class ScaledDotProductAttention(nn.Module):
 
 class MultiHeadAttention(nn.Module):
 
-    def __init__(self, dm, nhead, bias=False, attn_dropout=0.1, dropout=0.1) -> None:
+    def __init__(self, dm, nhead, bias=False, dropout=0.1) -> None:
         super().__init__()
 
         if dm % nhead != 0:
@@ -43,7 +41,7 @@ class MultiHeadAttention(nn.Module):
         self.wv = nn.Linear(dm, self.dk * nhead, bias=bias)
         self.wo = nn.Linear(dm, dm)
         self.dropout = nn.Dropout(dropout)
-        self.scaled_dot_prod_attn = ScaledDotProductAttention(self.dk, dropout=attn_dropout)
+        self.scaled_dot_prod_attn = ScaledDotProductAttention(self.dk)
 
     def forward(self, q, k, v, mask=None):
         # inshape: q = (batch_size, q_len, dm) k & v = (batch_size, seq_len, dm)
@@ -65,7 +63,6 @@ class MultiHeadAttention(nn.Module):
         context = self.dropout(context)
         return context, attention
 
-
 class Norm(nn.Module):
 
     def __init__(self, dm, eps=1e-6):
@@ -85,7 +82,6 @@ class Norm(nn.Module):
         # normalize
         norm = (x - mean) / std
         return norm * self.gamma + self.beta
-
 
 class FeedForwardNetwork(nn.Module):
 
@@ -108,6 +104,7 @@ class FeedForwardNetwork(nn.Module):
 
 
 if __name__ == "__main__":
+    # query key & values
     q = torch.rand((64, 10, 512))
     k = torch.rand((64, 10, 512))
     v = k

@@ -1,17 +1,30 @@
 import torch
+import torch.nn as nn
+from sublayers import MultiHeadAttention, Norm, FeedForwardNetwork
 
 
+class Encoder(nn.Module):
 
-def create_subsequent_mask(seq):
-    seq_len = seq.size(1)
-    # create a diagnal of 1's (left) 0's (right)
-    mask = torch.triu(torch.ones(seq_len, seq_len) == 1)
-    return mask.int().transpose(0, 1)
+    def __init__(self, dm, nhead, dff, bias=False, dropout=0.1, eps=1e-6) -> None:
+        super().__init__()
+        self.multihead = MultiHeadAttention(dm, nhead, bias, dropout)
+        self.norm1 = Norm(dm, eps)
+        self.norm2 = Norm(dm, eps)
+        self.feedforward = FeedForwardNetwork(dm, dff, dropout)
 
-def create_padded_mask(seq, pad_val):
-    return seq != pad_val
+    def forward(self, src, src_mask=None):
+        # inshape: (batch_size, seq_len, dm)
 
-def create_mask(src, tgt, pad_val):
-    src_mask = create_padded_mask(src, pad_val)
-    tgt_mask = create_padded_mask(tgt, pad_val) & create_subsequent_mask(tgt)
-    return src_mask, tgt_mask
+        # calc attn then add & norm (residual connection) shape: (batch_size, seq_len, dm)
+        x, attn = self.multihead(src, src, src, mask=src_mask)
+        x = self.norm1(src + x)
+
+        # calc linear transforms then add & norm (residual connections) shape: (batch_size, seq_len, dm)
+        out = self.norm2(x + self.feedforward(x))
+        return out
+
+if __name__ == "__main__":
+    inputs = torch.rand(32, 20, 512)
+    encoder = Encoder(512, 8, 2048)
+    outputs = encoder(inputs, src_mask=None)
+    print(outputs.size())
