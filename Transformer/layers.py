@@ -15,16 +15,55 @@ class Encoder(nn.Module):
     def forward(self, src, src_mask=None):
         # inshape: (batch_size, seq_len, dm)
 
-        # calc attn then add & norm (residual connection) shape: (batch_size, seq_len, dm)
-        x, attn = self.multihead(src, src, src, mask=src_mask)
-        x = self.norm1(src + x)
+        # calc context & attn then add & norm (residual connections) shape: (batch_size, seq_len, dm)
+        x = src
+        x_out, attn = self.multihead(x, x, x, mask=src_mask)
+        x = self.norm1(x + x_out)
 
         # calc linear transforms then add & norm (residual connections) shape: (batch_size, seq_len, dm)
-        out = self.norm2(x + self.feedforward(x))
-        return out
+        x_out = self.feedforward(x)
+        out = self.norm2(x + x_out)
+        return out, attn
+
+class Decoder(nn.Module):
+
+    def __init__(self, dm, nhead, dff, bias=False, dropout=0.1, eps=1e-6) -> None:
+        super().__init__()
+        self.maskmultihead = MultiHeadAttention(dm, nhead, bias, dropout)
+        self.multihead = MultiHeadAttention(dm, nhead, bias, dropout)
+        self.feedforward = FeedForwardNetwork(dm, dff, dropout)
+        self.norm1 = Norm(dm, eps)
+        self.norm2 = Norm(dm, eps)
+        self.norm3 = Norm(dm, eps)
+
+    def forward(self, src, tgt, src_mask=None, tgt_mask=None):
+        # inshape src: (batch_size seq_len, dm) inshape tgt: (batch_size, seq_len - 1, dm)
+
+        # calc masked context & attn then add & norm (residual connections) shape: (batch_size, seq_len - 1, dm)
+        x = tgt
+        x_out, attn1 = self.maskmultihead(x, x, x, mask=tgt_mask)
+        x = self.norm1(x + x_out)
+
+        # calc context & attn then add & norm (residual connections) shape: (batch_size, seq_len - 1, dm)
+        x_out, attn2 = self.multihead(x, src, src, mask=src_mask)
+        x = self.norm2(x + x_out)
+
+        # calc linear transforms then add & norm (residual connections) shape: (batch_size, seq_len - 1, dm)
+        x_out = self.feedforward(x)
+        out = self.norm3(x + x_out)
+        return out, attn1, attn2
+
+
 
 if __name__ == "__main__":
     inputs = torch.rand(32, 20, 512)
     encoder = Encoder(512, 8, 2048)
-    outputs = encoder(inputs, src_mask=None)
-    print(outputs.size())
+    enc_out, attention = encoder(inputs, src_mask=None)
+    print(enc_out.size(), attention.size())
+
+    decoder = Decoder(512, 8, 2048)
+    outputs = torch.rand(32, 19, 512)
+    dec_out, attn1, attn2 = decoder(enc_out, outputs)
+    print(dec_out.size(), attn1.size(), attn2.size())
+
+
