@@ -12,6 +12,9 @@ class Embeddings(nn.Module):
     def forward(self, x):
         # inshape: (batch_size, seq_len)
         return self.embedding(x)
+    
+    def linear(self):
+        return self.embedding.weight.T
 
 
 if __name__ == '__main__':
@@ -22,4 +25,9 @@ if __name__ == '__main__':
     embed = Embeddings(vocab_size, d_model, pad_idx)
     sequences = torch.randint(0, vocab_size, (64, maxlen))
     embeddings = embed(sequences)
+    weights = (embed.linear())
+    unembed = torch.matmul(embeddings, weights)
+
     print(embeddings.size())
+    print(weights.size())
+    print(unembed.size())

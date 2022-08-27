@@ -11,9 +11,9 @@ from transformers import AutoTokenizer
 from string import punctuation as PUNCTUATION, digits as DIGITS
 
 nlp = spacy.load("en_core_web_lg")
-nltk.download('averaged_perceptron_tagger')
-nltk.download('wordnet')
-nltk.download('omw-1.4')
+# nltk.download('averaged_perceptron_tagger')
+# nltk.download('wordnet')
+# nltk.download('omw-1.4')
 
 
 def get_pos(word):
@@ -47,25 +47,20 @@ class Tokenizer:
         return ids
 
     def decode_(self, ids):
-        
         return self.tokenizer.decode(ids)
 
     def encode(self, data, model=False):
 
         encoded = []
-
         for text in data:
             encoded.append(self.encode_(text, model))
-
         return np.array(encoded, dtype=object)
 
     def decode(self, tokens):
 
         decoded = []
-
         for ids in tokens:
             decoded.append(self.decode_(ids))
-
         return np.array(decoded, dtype=object)
 
 class Process:
