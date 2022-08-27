@@ -14,7 +14,7 @@ class Embeddings(nn.Module):
         return self.embedding(x)
     
     def linear(self):
-        return self.embedding.weight.T
+        return self.embedding.weight
 
 
 if __name__ == '__main__':

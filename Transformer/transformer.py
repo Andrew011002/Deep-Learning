@@ -36,7 +36,7 @@ class Transformer(nn.Module):
         d_out, d_attn1, d_attn2 = self.decoder(e_out, x, src_mask=None, tgt_mask=None)
 
         # linear transform & softmax shape: (batch_size, seq_len, n_tokens)
-        out = torch.matmul(d_out, self.linear)
+        out = torch.matmul(d_out, self.linear.T)
         return self.softmax(out)
 
 def create_subsequent_mask(seq):
