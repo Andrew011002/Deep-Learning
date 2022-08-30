@@ -45,18 +45,6 @@ class Transformer(nn.Module):
         out = torch.matmul(d_out, self.wu.T)
         return self.softmax(out)
 
-def create_subsequent_mask(seq):
-    # inshape: (batch_size, seq_len)
-    batch_size, seq_len = seq.size(0), seq.size(1)
-
-    # create a diagnal of 1's (left) 0's (right)
-    mask = torch.triu(torch.ones(seq_len, seq_len) == 1)
-    return mask.int().transpose(0, 1)
-
-def create_padded_mask(seq, pad_val):
-    # inshape: (batch_size, seq_len)
-    return seq != pad_val
-
 if __name__ == "__main__":
     vocab_size = 10
     seq_len = 25
@@ -66,18 +54,12 @@ if __name__ == "__main__":
     inputs = torch.randint(0, vocab_size, (batch_size, seq_len))
     outputs = inputs[:, 1:]
 
-    # transformer = Transformer(vocab_size, seq_len)
-    # out = transformer(inputs, outputs)
+    transformer = Transformer(vocab_size, seq_len)
+    out = transformer(inputs, outputs)
 
-    # print(out.size())
+    print(out.size())
 
-    src_pad_mask = create_padded_mask(inputs, pad_idx)
-    tgt_pad_mask = create_padded_mask(outputs, pad_idx)
-    tgt_mask = create_subsequent_mask(outputs)
-    for tgt in tgt_pad_mask:
-        mask = tgt & tgt_mask
-        print(mask)
-        break
+    
         
 
     
