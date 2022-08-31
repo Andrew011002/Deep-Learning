@@ -11,12 +11,17 @@ class ScaledDotProductAttention(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, q, k, v, mask=None):
-        # inputs are projected shape = q: (batch_size, q_len, d_k) k & v : (batch_size, seq_len, d_k)
+        # inputs are projected shape = q: (batch_size, q_len, dk) k & v : (batch_size, seq_len, dk)
+
+        # compute dot product between q & k shape: (batch_size, q_len, seq_len)
         similarities = torch.matmul(q, k.transpose(-2, -1)) * self.norm
 
         # apply mask (if required)
+        print(similarities)
         if mask is not None:
+            # mask = mask.unsqueeze(1)
             similarities = similarities.masked_fill(mask == 0, -1e9)
+        print(similarities)
 
         # compute attention weights
         attention = self.softmax(similarities)
