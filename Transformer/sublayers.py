@@ -17,11 +17,9 @@ class ScaledDotProductAttention(nn.Module):
         similarities = torch.matmul(q, k.transpose(-2, -1)) * self.norm
 
         # apply mask (if required)
-        print(similarities)
         if mask is not None:
-            # mask = mask.unsqueeze(1)
+            mask = mask.unsqueeze(1) # for multi-head attention
             similarities = similarities.masked_fill(mask == 0, -1e9)
-        print(similarities)
 
         # compute attention weights
         attention = self.softmax(similarities)
