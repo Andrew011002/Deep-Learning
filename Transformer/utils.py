@@ -1,7 +1,6 @@
 import torch
-import torch.nn as nn
-from sublayers import MultiHeadAttention
-from embedding import Embeddings
+import numpy as np
+from torch.utils.data import TensorDataset, DataLoader
 
 def generate_mask(inputs, outputs, pad_idx):
     # inshape inputs: (batch_size, inputs_len) outputs: (batch_size, outputs_len) pad_idx: (,)
@@ -20,26 +19,56 @@ def generate_mask(inputs, outputs, pad_idx):
     # shape src_mask: (batch_size, 1, seq_len) tgt_mask: (batch_size, tgt_len, tgt_len)
     return src_mask, tgt_mask
 
-def train():
-    pass
+def train(transformer, optimizer, loss_fn, dataloader, epochs=5, device=None):
+
+    print("Training Started")
+    m = len(dataloader)
+    net_loss = 0
+
+    for epoch in range(epochs):
+        
+        # reset accumulative loss and display current epoch
+        print(f"Epoch {epoch + 1} Started")
+        accum_loss = 0
+
+        for i, data in enumerate(dataloader):
+            # get source and targets
+            inputs, labels = data
+            src, tgt, out = inputs, labels[:, :-1], labels[:, 1:]
+            # generate the mask
+            src_mask, tgt_mask = generate_mask(src, tgt, transformer.pad_idx)
+
+            # reset grad, make pred, calc loss, update params
+            optimizer.zero_grad()
+            pred = transformer(src, tgt, src_mask, tgt_mask)
+            loss = loss_fn(pred, out)
+            loss.backward()
+            optimizer.step()
+            accum_loss += loss.item()
+
+            if (i + 1) % (m // 4) == 0:
+                # diplay info every 1/4 of an epoch
+                print(f"Epoch {epoch + 1} {np.rint((i + 1) // m * 100)}% Complete | Current Loss: {accum_loss / (i + 1):.4f}")
+        net_loss += accum_loss
+        # display info after end of epoch
+        print(f"Epoch {epoch + 1} Complete | Average Loss: {(i + 1) / m:.4f}")
+    net_loss /= epochs
+    # display info after end of training
+    print(f"Training Complete | Overall Average Loss: {net_loss:.4f}")
+    return net_loss / epoch
+        
+def create_dataloader(inputs: np.ndarray, labels: np.ndarray, batch_size=32, 
+                        drop_last=True, shuffle=False, **dataloader_kwargs):
+    # create tensors
+    inputs, labels = torch.from_numpy(inputs), torch.from_numpy(labels)
+    tensorset = TensorDataset(inputs, labels)
+    # create dataloader with specified args
+    dataloader = DataLoader(tensorset, batch_size=batch_size, shuffle=shuffle, 
+                            drop_last=drop_last, **dataloader_kwargs)
+    return dataloader
 
 if __name__ == "__main__":
-    batch_size = 2
-    vocab_size = 10
-    max_len = 5
-    pad_idx = 0
-    dm = 512
-
-    inputs = torch.randint(0, vocab_size, (batch_size, max_len))
-    outputs = inputs[:, :-1]
-    src_mask, tgt_mask = generate_mask(inputs, outputs, pad_idx)
-
-    embeddings = Embeddings(vocab_size, dm, pad_idx)
-    src = embeddings(inputs)
-    tgt = embeddings(outputs)
-    multihead = MultiHeadAttention(512, 8)
-    context, attn = multihead(src, src, src, src_mask)
-    context, attn = multihead(tgt, tgt, tgt, tgt_mask)
+    pass
 
 
 

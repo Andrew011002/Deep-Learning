@@ -22,11 +22,8 @@ class Transformer(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
         self.pad_idx = pad_idx
 
-    def forward(self, inputs, outputs):
+    def forward(self, inputs, outputs, src_mask=None, tgt_mask=None):
         # inshape: (batch_size, seq_len)
-
-        # create maks
-        src_mask, tgt_mask = generate_mask(inputs, outputs, self.pad_idx)
 
         # embeddings + positional encodings shape: (batch_size, seq_len, dm)
         x = self.embeddings(inputs)
@@ -51,7 +48,7 @@ class Transformer(nn.Module):
         return self.softmax(out)
 
 if __name__ == "__main__":
-    vocab_size = 10
+    vocab_size = 1000
     seq_len = 25
     batch_size = 16
     pad_idx = 0

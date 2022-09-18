@@ -63,6 +63,12 @@ class Tokenizer:
             decoded.append(self.decode_(ids))
         return np.array(decoded, dtype=object)
 
+    def pad_tokens(self, tokens, maxlen, end=True):
+        pass
+    
+    def truncate(self, tokens, maxlen):
+        pass
+
 class Process:
 
     def __init__(self) -> None:
