@@ -22,7 +22,7 @@ class Transformer(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
         self.pad_idx = pad_idx
 
-    def forward(self, inputs, outputs, src_mask=None, tgt_mask=None):
+    def forward(self, inputs, outputs, src_mask=None, tgt_mask=None, softmax=False):
         # inshape: (batch_size, seq_len)
 
         # embeddings + positional encodings shape: (batch_size, seq_len, dm)
@@ -45,7 +45,10 @@ class Transformer(nn.Module):
 
         # linear transform & softmax shape: (batch_size, tgt_len, n_tokens)
         out = torch.matmul(d_out, self.wu.T)
-        return self.softmax(out)
+        # apply softmax (for inference)
+        if softmax:
+            return self.softmax(out)
+        return out
 
 if __name__ == "__main__":
     vocab_size = 1000

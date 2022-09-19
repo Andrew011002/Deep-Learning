@@ -63,11 +63,33 @@ class Tokenizer:
             decoded.append(self.decode_(ids))
         return np.array(decoded, dtype=object)
 
-    def pad_tokens(self, tokens, maxlen, end=True):
-        pass
+    def pad_tokens(self, tokens, maxlen, pad_idx=0, end=True):
+        # iterate each sequence
+        for i, seq in enumerate(tokens):
+            seqlen = len(seq)
+            # pad the seq
+            if seqlen < maxlen:
+                diff = maxlen - seqlen
+                pad = np.zeros((diff, )) + pad_idx
+                # pad at the very end
+                if end:
+                    seq = np.append(seq, pad)
+                # pad at the start
+                else:
+                    seq = np.append(pad, seq)
+            tokens[i] = seq
+        return np.array(tokens, dtype=object)
     
     def truncate(self, tokens, maxlen):
-        pass
+
+        for i, seq in enumerate(tokens):
+            seqlen = len(seq)
+            if seqlen > maxlen:
+                seq = seq[:maxlen]
+            tokens[i] = seq
+
+        return np.array(tokens, dtype=object)
+            
 
 class Process:
 
@@ -201,24 +223,44 @@ if __name__ == '__main__':
 
     # BASIC PREPROCESSING
 
-    data = [text for label, text in list(iter(AG_NEWS('./data', split='test')))]
-    process = Process()
-    print("(Original)", data[79])
-    process.remove_punctuation(data)
-    print("(Remove Punctuation)", data[79])
-    process.remove_words(data, ["technology", "companies"])
-    print("(Remove Specific Words)", data[79])
-    # process.remove_digits(data)
-    process.replace_numbers(data)
-    print("(Replace Numbers)", data[79])
-    process.remove_stopwords(data)
-    print("(Remove Stopwords)", data[79])
-    process.lemmatize(data, lemmatizer=nltk_lemmatizer)
-    print("(Lemmatize Text)", data[79])
+    # data = [text for label, text in list(iter(AG_NEWS('./data', split='test')))]
+    # process = Process()
+    # print("(Original)", data[79])
+    # process.remove_punctuation(data)
+    # print("(Remove Punctuation)", data[79])
+    # process.remove_words(data, ["technology", "companies"])
+    # print("(Remove Specific Words)", data[79])
+    # # process.remove_digits(data)
+    # process.replace_numbers(data)
+    # print("(Replace Numbers)", data[79])
+    # process.remove_stopwords(data)
+    # print("(Remove Stopwords)", data[79])
+    # process.lemmatize(data, lemmatizer=nltk_lemmatizer)
+    # print("(Lemmatize Text)", data[79])
 
-    # TOKENIZING TEXT COMPLETELY
+    # # TOKENIZING TEXT COMPLETELY
 
-    tokens = Tokenizer().encode(data, model=True)
-    print("(Tokens)", tokens[79])
-    decoded = Tokenizer().decode(tokens)
-    print("(Token Values)", decoded[79])
+    # tokens = Tokenizer().encode(data, model=True)
+    # print("(Tokens)", tokens[79])
+    # decoded = Tokenizer().decode(tokens)
+    # print("(Token Values)", decoded[79])
+    
+    tokens = []
+    n = 10000
+    vocab = 5000
+    lengths = 15
+    for i in range(n):
+        seqlen = np.random.randint(1, lengths + 1)
+        seq = np.random.randint(0, vocab, (seqlen, ))
+        tokens.append(seq)
+    tokens = np.array(tokens, dtype=object)
+    maxlen = 10
+    tokens = Tokenizer().pad_tokens(tokens, maxlen, pad_idx=0, end=False)
+    for i in range(5):
+        index = np.random.choice(n)
+        print(tokens[index], len(tokens[index]))
+    tokens = Tokenizer().truncate(tokens, maxlen)
+    for i in range(5):
+        index = np.random.choice(n)
+        print(tokens[index], len(tokens[index]))
+    
