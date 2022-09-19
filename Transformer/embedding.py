@@ -18,16 +18,4 @@ class Embeddings(nn.Module):
 
 
 if __name__ == '__main__':
-    maxlen = 50
-    vocab_size = 10000
-    d_model = 512
-    pad_idx = 0
-    embed = Embeddings(vocab_size, d_model, pad_idx)
-    sequences = torch.randint(0, vocab_size, (64, maxlen))
-    embeddings = embed(sequences)
-    weights = (embed.linear())
-    unembed = torch.matmul(embeddings, weights)
-
-    print(embeddings.size())
-    print(weights.size())
-    print(unembed.size())
+    pass

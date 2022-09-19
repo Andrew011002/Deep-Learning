@@ -51,18 +51,7 @@ class Transformer(nn.Module):
         return out
 
 if __name__ == "__main__":
-    vocab_size = 1000
-    seq_len = 25
-    batch_size = 16
-    pad_idx = 0
-    dm = 512
-
-    inputs = torch.randint(0, vocab_size, (batch_size, seq_len))
-    outputs = inputs[:, :-1]
-
-    transformer = Transformer(vocab_size, seq_len)
-    out = transformer(inputs, outputs)
-    print(out.size())
+    pass
 
     
         

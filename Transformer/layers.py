@@ -56,14 +56,6 @@ class Decoder(nn.Module):
 
 
 if __name__ == "__main__":
-    inputs = torch.rand(32, 20, 512)
-    encoder = Encoder(512, 8, 2048)
-    enc_out, attention = encoder(inputs, src_mask=None)
-    print(enc_out.size(), attention.size())
-
-    decoder = Decoder(512, 8, 2048)
-    outputs = torch.rand(32, 19, 512)
-    dec_out, attn1, attn2 = decoder(enc_out, outputs)
-    print(dec_out.size(), attn1.size(), attn2.size())
+    pass
 
 

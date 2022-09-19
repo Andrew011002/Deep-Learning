@@ -29,15 +29,6 @@ class PositionalEncoder(nn.Module):
         return self.dropout(embeddings)
 
 if __name__ == '__main__':
-    batch_size = 64
-    seq_len = 15
-    max_len = 20
-    dm = 512
-    
-    embeddings = torch.rand(batch_size, seq_len, dm)
-    pos_encoder = PositionalEncoder(dm, max_len, dropout=0.1)
-
-    new_embeddings = pos_encoder(embeddings)
-    print(new_embeddings.size())
+    pass
 
     

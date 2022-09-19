@@ -107,36 +107,4 @@ class FeedForwardNetwork(nn.Module):
 
 
 if __name__ == "__main__":
-    # query key & values
-    q = torch.rand((64, 10, 512))
-    k = torch.rand((64, 10, 512))
-    v = k
-
-    # MULTI-HEAD CALCULATION
-    multihead = MultiHeadAttention(512, 8)
-    values, attention = multihead(q, k, v, mask=None)
-    print(attention.size(), values.size())
-
-    # NORM LAYER
-    norm = Norm(512)
-    normed = norm(values)
-    print(normed.size())
-
-    # FEED FORWARD NETWORK
-    feedforward = FeedForwardNetwork(512, 2048)
-    transform = feedforward(normed)
-    print(transform.size())
-
-
-
-
-    
-    
-    
-
-
-
-
-    
-
-    
+    pass
