@@ -21,6 +21,8 @@ def generate_mask(inputs, outputs, pad_idx):
 
 def train(transformer, optimizer, loss_fn, dataloader, epochs=5, device=None):
 
+    transformer.train()
+
     print("Training Started")
     m = len(dataloader)
     net_loss = 0
@@ -33,14 +35,15 @@ def train(transformer, optimizer, loss_fn, dataloader, epochs=5, device=None):
 
         for i, data in enumerate(dataloader):
             # get source and targets
-            inputs, labels = data
-            src, tgt, out = inputs, labels[:, :-1], labels[:, 1:]
+            inputs, labels = data.to(device)
+            src, tgt, out = inputs, labels[:, :-1], labels[:, 1:] # shape src: (batch_size, srclen) tgt & out: (batch_size, outlen)
             # generate the mask
             src_mask, tgt_mask = generate_mask(src, tgt, transformer.pad_idx)
+            src_mask, tgt_mask = src_mask.to(device), tgt_mask.to(device)
 
             # reset grad, make pred, calc loss, update params
             optimizer.zero_grad()
-            pred = transformer(src, tgt, src_mask, tgt_mask)
+            pred = transformer(src, tgt, src_mask, tgt_mask, softmax=False) # shape: (batch_size, seq_len, vocab_size)
             loss = loss_fn(pred, out)
             loss.backward()
             optimizer.step()
@@ -57,8 +60,7 @@ def train(transformer, optimizer, loss_fn, dataloader, epochs=5, device=None):
     print(f"Training Complete | Overall Average Loss: {net_loss:.4f}")
     return net_loss / epoch
         
-def create_dataloader(inputs: np.ndarray, labels: np.ndarray, batch_size=32, 
-                        drop_last=True, shuffle=False, **dataloader_kwargs):
+def create_dataloader(inputs, labels, batch_size=32, drop_last=True, shuffle=False, **dataloader_kwargs):
     # create tensors
     inputs, labels = torch.from_numpy(inputs), torch.from_numpy(labels)
     tensorset = TensorDataset(inputs, labels)
@@ -67,8 +69,19 @@ def create_dataloader(inputs: np.ndarray, labels: np.ndarray, batch_size=32,
                             drop_last=drop_last, **dataloader_kwargs)
     return dataloader
 
+        
 if __name__ == "__main__":
     pass
+    
+    
+
+
+    
+    
+    
+    
+
+
 
 
 

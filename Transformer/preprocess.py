@@ -10,7 +10,8 @@ from torchtext.datasets import AG_NEWS
 from transformers import AutoTokenizer
 from string import punctuation as PUNCTUATION, digits as DIGITS
 
-nlp = spacy.load("en_core_web_lg")
+# nlp = spacy.load("en_core_web_lg")
+nlp = None
 # nltk.download('averaged_perceptron_tagger')
 # nltk.download('wordnet')
 # nltk.download('omw-1.4')
@@ -61,35 +62,24 @@ class Tokenizer:
         decoded = []
         for ids in tokens:
             decoded.append(self.decode_(ids))
-        return np.array(decoded, dtype=object)
-
-    def pad_tokens(self, tokens, maxlen, pad_idx=0, end=True):
-        # iterate each sequence
-        for i, seq in enumerate(tokens):
-            seqlen = len(seq)
-            # pad the seq
-            if seqlen < maxlen:
-                diff = maxlen - seqlen
-                pad = np.zeros((diff, )) + pad_idx
-                # pad at the very end
-                if end:
-                    seq = np.append(seq, pad)
-                # pad at the start
-                else:
-                    seq = np.append(pad, seq)
-            tokens[i] = seq
-        return np.array(tokens, dtype=object)
+        return np.array(decoded, dtype=object)        
     
-    def truncate(self, tokens, maxlen):
+    def pad_tokens(self, tokens, pad_val, end=True):
 
+        maxlen = len(max(tokens, key=len))
         for i, seq in enumerate(tokens):
             seqlen = len(seq)
-            if seqlen > maxlen:
-                seq = seq[:maxlen]
-            tokens[i] = seq
+            if seqlen < maxlen:
+                pad = np.zeros((maxlen - seqlen, 0)) + pad_val
+                seq = np.append(seq, pad) if end else np.append(pad, seq)
+                tokens[i] = seq
+    
+    def truncate_tokens(self, tokens, maxlen):
 
-        return np.array(tokens, dtype=object)
-            
+        for i, seq in enumerate(tokens):
+            if len(seq) > maxlen:
+                seq = seq[:maxlen]
+                tokens[i] = seq
 
 class Process:
 
