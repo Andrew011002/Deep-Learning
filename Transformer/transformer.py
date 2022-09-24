@@ -1,11 +1,9 @@
 import torch
 import torch.nn as nn
+from utils import generate_mask
 from embedding import Embeddings
 from pos_encoder import PositionalEncoder
 from layers import Encoder, Decoder
-from utils import generate_mask
-
-
 
 class Transformer(nn.Module):
     
@@ -21,8 +19,9 @@ class Transformer(nn.Module):
         self.wu = self.embeddings.linear()
         self.softmax = nn.Softmax(dim=-1)
         self.pad_idx = pad_idx
+        self.xavier_init()
 
-    def forward(self, src, tgt, src_mask=None, tgt_mask=None, softmax=False):
+    def forward(self, src, tgt, src_mask=None, tgt_mask=None):
         # inshape: (batch_size, seq_len)
 
         # embeddings + positional encodings shape: (batch_size, seq_len, dm)
@@ -45,9 +44,12 @@ class Transformer(nn.Module):
 
         # linear transform & softmax shape: (batch_size, tgt_len, n_tokens)
         out = torch.matmul(d_out, self.wu.T)
-
-        # apply sm (inference) leave alone (train)
-        return self.softmax(out) if softmax else out
+        return out
+        
+    def xavier_init(self):
+        for param in self.parameters():
+            if param.dim() > 1:
+                nn.init.xavier_uniform_(param)
 
 if __name__ == "__main__":
     pass

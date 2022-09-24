@@ -19,46 +19,46 @@ def generate_mask(inputs, outputs, pad_idx):
     # shape src_mask: (batch_size, 1, seq_len) tgt_mask: (batch_size, tgt_len, tgt_len)
     return src_mask, tgt_mask
 
-def train(transformer, optimizer, loss_fn, dataloader, epochs=5, device=None):
+def pad_inputs(tokens, pad_idx, end=True):
+    padded = []
+    maxlen = len(max(tokens, key=len))
+    for seq in tokens:
+        seq = pad_sequence(seq, maxlen, pad_idx, end=end)
+        padded.append(seq)
+    return np.array(padded, dtype=np.float64)
 
-    transformer.train()
+def pad_outputs(tgt_tokens, out_tokens, pad_idx, end=True):
+    if len(tgt_tokens) != len(out_tokens):
+        raise ValueError("tgt_tokens and out_tokens must be the same dimension along the 0 axis")
 
-    print("Training Started")
-    m = len(dataloader)
-    net_loss = 0
+    if np.array_equal(tgt_tokens, out_tokens):
+        return pad_inputs(tgt_tokens, pad_idx, end=end)
+    else:
+        padded_tgt, padded_out = [], []
+        max_tgt_len, max_out_len = len(max(tgt_tokens, key=len)), len(max(out_tokens, key=len))
+        maxlen = max(max_tgt_len, max_out_len)
 
-    for epoch in range(epochs):
+        for tgt, out in zip(tgt_tokens, out_tokens):
+            tgt, out = pad_sequence(tgt, maxlen, pad_idx, end=end), pad_sequence(out, maxlen, pad_idx, end=end)
+            padded_tgt.append(tgt)
+            padded_out.append(out)
+        return np.array(padded_tgt, dtype=np.float64), np.array(padded_out, dtype=np.float64)
         
-        # reset accumulative loss and display current epoch
-        print(f"Epoch {epoch + 1} Started")
-        accum_loss = 0
 
-        for i, data in enumerate(dataloader):
-            # get source and targets
-            inputs, labels = data.to(device)
-            src, tgt, out = inputs, labels[:, :-1], labels[:, 1:] # shape src: (batch_size, srclen) tgt & out: (batch_size, outlen)
-            # generate the mask
-            src_mask, tgt_mask = generate_mask(src, tgt, transformer.pad_idx)
-            src_mask, tgt_mask = src_mask.to(device), tgt_mask.to(device)
+def pad_sequence(sequence, maxlen, pad_idx, end=True):
+    seq_len = len(sequence)
+    if seq_len < maxlen:
+        pad = np.zeros((maxlen - seq_len,)) + pad_idx
+        sequence = np.append(sequence, pad) if end else np.append(pad, sequence)
+    return sequence
 
-            # reset grad, make pred, calc loss, update params
-            optimizer.zero_grad()
-            pred = transformer(src, tgt, src_mask, tgt_mask, softmax=False) # shape: (batch_size, seq_len, vocab_size)
-            loss = loss_fn(pred, out)
-            loss.backward()
-            optimizer.step()
-            accum_loss += loss.item()
-
-            if (i + 1) % (m // 4) == 0:
-                # diplay info every 1/4 of an epoch
-                print(f"Epoch {epoch + 1} {np.rint((i + 1) // m * 100)}% Complete | Current Loss: {accum_loss / (i + 1):.4f}")
-        net_loss += accum_loss
-        # display info after end of epoch
-        print(f"Epoch {epoch + 1} Complete | Average Loss: {(i + 1) / m:.4f}")
-    net_loss /= epochs
-    # display info after end of training
-    print(f"Training Complete | Overall Average Loss: {net_loss:.4f}")
-    return net_loss / epoch
+def truncate_tokens(tokens, maxlen):
+    # modify tokens inplace
+    for i, seq in enumerate(tokens):
+        # truncate seq larger than maxlen
+        if len(seq) > maxlen:
+            seq = seq[:maxlen]
+            tokens[i] = seq
         
 def create_dataloader(inputs, labels, batch_size=32, drop_last=True, shuffle=False, **dataloader_kwargs):
     # create tensors
@@ -72,6 +72,9 @@ def create_dataloader(inputs, labels, batch_size=32, drop_last=True, shuffle=Fal
         
 if __name__ == "__main__":
     pass
+    
+    
+
     
     
 

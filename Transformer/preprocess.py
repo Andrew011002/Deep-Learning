@@ -63,23 +63,6 @@ class Tokenizer:
         for ids in tokens:
             decoded.append(self.decode_(ids))
         return np.array(decoded, dtype=object)        
-    
-    def pad_tokens(self, tokens, pad_val, end=True):
-
-        maxlen = len(max(tokens, key=len))
-        for i, seq in enumerate(tokens):
-            seqlen = len(seq)
-            if seqlen < maxlen:
-                pad = np.zeros((maxlen - seqlen, 0)) + pad_val
-                seq = np.append(seq, pad) if end else np.append(pad, seq)
-                tokens[i] = seq
-    
-    def truncate_tokens(self, tokens, maxlen):
-
-        for i, seq in enumerate(tokens):
-            if len(seq) > maxlen:
-                seq = seq[:maxlen]
-                tokens[i] = seq
 
 class Process:
 
