@@ -166,8 +166,7 @@ class Process:
 
         if operations is None:
             operations = {"accent": dict(), "html": dict(pattern=None), "punctuation": dict(punctuation=None),
-                        "numbers": dict(), "stopwords": dict(stopwords=None), "lemmatize": dict(lemmatizer=None), 
-                        "whitespaces": dict(),}
+                            "numbers": dict(), "whitespaces": dict(),}
 
         mappings = {"html": self.remove_html, "punctuation": self.remove_punctuation, "digits": self.remove_digits, 
                     "stopwords": self.remove_stopwords, "whitespaces": self.remove_whitespaces, "accents": self.replace_accents,

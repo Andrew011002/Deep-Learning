@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from utils import generate_mask
 from embedding import Embeddings
 from pos_encoder import PositionalEncoder
 from layers import Encoder, Decoder

@@ -2,13 +2,13 @@ import torch
 import numpy as np
 from torch.utils.data import TensorDataset, DataLoader
 
-def generate_mask(inputs, outputs, pad_idx):
-    # inshape inputs: (batch_size, inputs_len) outputs: (batch_size, outputs_len) pad_idx: (,)
-    tgt_len = outputs.size(1)
+def generate_mask(source, targets, pad_idx):
+    # inshape source: (batch_size, inputs_len) targets: (batch_size, outputs_len) pad_idx: (,)
+    tgt_len = targets.size(1)
 
     # create padded mask for src & tgt 
-    src_mask = (inputs != pad_idx).unsqueeze(-2)
-    tgt_mask = (outputs != pad_idx).unsqueeze(-2)
+    src_mask = (source != pad_idx).unsqueeze(-2)
+    tgt_mask = (targets != pad_idx).unsqueeze(-2)
 
     # create subsequent mask for tgt (no peak) shape tgt_nopeak_mask: (1, tgt_len, tgt_len)
     tgt_nopeak_mask = torch.triu(torch.ones((1, tgt_len, tgt_len)) == 1)
@@ -18,6 +18,15 @@ def generate_mask(inputs, outputs, pad_idx):
     tgt_mask = tgt_mask & tgt_nopeak_mask
     # shape src_mask: (batch_size, 1, seq_len) tgt_mask: (batch_size, tgt_len, tgt_len)
     return src_mask, tgt_mask
+
+
+def generate_nopeak_pad_mask(tgt, pad_idx):
+    tgt_len = tgt.size(1)
+    tgt_mask = (tgt != pad_idx).unsqueeze(-2)
+    tgt_nopeak_mask = torch.triu(torch.ones((1, tgt_len, tgt_len)) == 1)
+    tgt_nopeak_mask = tgt_nopeak_mask.transpose(1, 2)
+    tgt_mask = tgt_mask & tgt_nopeak_mask
+    return tgt_mask
 
 def pad_inputs(tokens, pad_idx, end=True):
     padded = []

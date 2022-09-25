@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
-from torch import LongTensor
-from utils import generate_mask
+from utils import generate_mask, generate_nopeak_pad_mask
 
 def train(model, optimizer, dataloader, epochs=5, device=None):
 
@@ -48,24 +47,38 @@ def train(model, optimizer, dataloader, epochs=5, device=None):
     print(f"Training Complete | Overall Average Loss: {net_loss:.4f}")
     return net_loss
 
+def predict(model, src, sos_idx, eos_idx, pad_idx, maxlen, device=None):
+    # src inshape: (src_len,)
 
-def predict(model, sos_idx, eos_idx, source, prompt=False):
+    # preprocess
+    model.eval()
+    softmax = nn.Softmax(dim=-1)
 
+    # encode source
+    src = torch.from_numpy(src).long().unsqueeze(0) # (1, src_len)
+    src_mask = (src != pad_idx).unsqueeze(-2)
+    x = model.pos_encoder(model.embeddings(src))
+    for encoder in model.encoders:
+        x, e_attn = encoder(x, src_mask=src_mask)
+    e_out = x # (1, seq_len, d_model)
 
-    # encode sequence
+    output = torch.tensor([[sos_idx]]).long() # generate sos
 
-    # give decoder sos
+    # predict one token at a time
+    while output.size(1) < maxlen:
+        # decode from src and current output
+        tgt_mask = generate_nopeak_pad_mask(output, pad_idx)
+        x = model.pos_encoder(model.embeddings(output))
+        for decoder in model.decoders:
+            x, d_attn1, d_attn2 = decoder(e_out, x, src_mask=src_mask, tgt_mask=tgt_mask)
+        d_out = x
+        out = softmax(torch.matmul(d_out, model.wu.T))
+        out = torch.argmax(out, dim=-1)[:, -1].unsqueeze(0)
+        if out.item() == eos_idx:
+            return torch.cat((output, out), dim=-1)
+        output = torch.cat((output, out), dim=-1)
+    
+    return output
 
-    # pred from encoded sequence and sos
-
-    # apply softmax to last dim
-
-    # add pred to sos 
-
-    # rerun until it's maxlen or eos token
-
-
-
-
-    if __name__ == "__main__":
-        pass
+if __name__ == "__main__":
+    pass
