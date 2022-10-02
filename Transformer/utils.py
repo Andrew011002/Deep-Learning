@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from torch.utils.data import TensorDataset, DataLoader
 
-def generate_mask(source, targets, pad_idx):
+def generate_masks(source, targets, pad_idx):
     # inshape source: (batch_size, inputs_len) targets: (batch_size, outputs_len) pad_idx: (,)
     tgt_len = targets.size(1)
 

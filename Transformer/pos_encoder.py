@@ -4,12 +4,12 @@ import torch.nn as nn
 
 class PositionalEncoder(nn.Module):
 
-    def __init__(self, dm, max_len, dropout=0.1) -> None:
+    def __init__(self, dm, maxlen, dropout=0.1) -> None:
         super().__init__()
         self.dropout = nn.Dropout(dropout)
 
         # pos shape: (max seq_len, 1) dim: (dm, )
-        pos = torch.arange(max_len).float().view(-1, 1)
+        pos = torch.arange(maxlen).float().view(-1, 1)
         dim = torch.arange(dm).float()
 
         # apply pos / (10000^2*i / dm) -> use sin for even indices & cosine for odd indices

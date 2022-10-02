@@ -11,10 +11,8 @@ class Transformer(nn.Module):
         super().__init__()
         self.embeddings = Embeddings(n_tokens, dm, pad_idx)
         self.pos_encoder = PositionalEncoder(dm, maxlen, dropout)
-        self.encoders = nn.ModuleList([Encoder(dm, nhead, dff, bias, dropout, eps) \
-                                        for l in range(layers)])
-        self.decoders = nn.ModuleList([Decoder(dm, nhead, dff, bias, dropout, eps) \
-                                        for l in range(layers)])
+        self.encoder = Encoder(dm, nhead, dff, layers, bias, dropout, eps)          
+        self.decoder = Decoder(dm, nhead, dff, layers, bias, dropout, eps)
         self.wu = self.embeddings.linear()
         self.softmax = nn.Softmax(dim=-1)
         self.pad_idx = pad_idx
@@ -28,20 +26,16 @@ class Transformer(nn.Module):
         x = self.pos_encoder(x)
 
         # encode embeddings shape: (batch_size, seq_len, dm)
-        for encoder in self.encoders:
-            x, e_attn = encoder(x, src_mask=src_mask)
-        e_out = x
+        e_out, attn = self.encoder(x, src_mask=src_mask)
 
         # embeddings + positional encodings shape: (batch_size, seq_len, dm)
         x = self.embeddings(tgt)        
         x = self.pos_encoder(x)
 
         # decode embeddings shape: (batch_size, seq_len, dm)
-        for decoder in self.decoders:
-            x, d_attn1, d_attn2 = decoder(e_out, x, src_mask=src_mask, tgt_mask=tgt_mask)
-        d_out = x
+        d_out, attn1, attn2 = self.decoder(e_out, x, src_mask=src_mask, tgt_mask=tgt_mask)
 
-        # linear transform & softmax shape: (batch_size, tgt_len, n_tokens)
+        # umbedding wieth embedding weight matrix
         out = torch.matmul(d_out, self.wu.T)
         return out
         
