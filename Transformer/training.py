@@ -37,10 +37,10 @@ def train(model, optimizer, dataloader, epochs=5, device=None):
             # tally loss over time
             accum_loss += loss.item()
 
-            if (i + 1) % (m // 4) == 0:
+            if (i + 1) % (m // 4) == 0 and (i + 1) != m:
                 # diplay info every 25% of an epoch
                 print(f"Epoch {epoch + 1} {(i + 1) / m * 100:.1f}% Complete | Current Loss: {accum_loss / (i + 1):.4f}")
-        net_loss += accum_loss
+        net_loss += accum_loss / m
         # display info after end of epoch
         print(f"Epoch {epoch + 1} Complete | Epoch Average Loss: {accum_loss / m:.4f}")
     net_loss /= epochs
@@ -56,15 +56,19 @@ def predict(model, src, sos_idx, eos_idx, maxlen, device=None):
     softmax = nn.Softmax(dim=-1)
 
     # encode src 
-    src = torch.from_numpy(src).long().unsqueeze(0).to(device) # (1, src_len)
+    src = torch.from_numpy(src).long().to(device) # (unknown, src_len)
+    src = src.unsqueeze(0) if src.dim() < 2 else src # (batch_size, src_len)
     src_mask = (src != model.pad_idx).unsqueeze(-2).to(device)
-    # embed and positionally encoder src
+    # embed and positionally encode src
     x = model.embeddings(src)
     x = model.pos_encoder(x)
     # pass through encoder layers
     e_out, attn = model.encoder(x, src_mask=src_mask)
 
-    output = torch.tensor([[sos_idx]]).long().to(device) # generate sos
+    # create output tensor(s)
+    output = torch.tensor([sos_idx]).unsqueeze(0).long().to(device) # generate sos
+    batch_size = src.size(0)
+    output = output.repeat(batch_size, 1)
 
     # predict one token at a time
     while output.size(1) < maxlen:
@@ -77,12 +81,10 @@ def predict(model, src, sos_idx, eos_idx, maxlen, device=None):
         d_out, attn1, attn2 = model.decoder(e_out, x, src_mask=src_mask, tgt_mask=tgt_mask)
         # unembed then apply softmax
         out = softmax(torch.matmul(d_out, model.wu.T))
-        # get last token of highest probability
-        out = torch.argmax(out, dim=-1)[:, -1].unsqueeze(0)
-        # done predicting
-        if out.item() == eos_idx:
-            return torch.cat((output, out), dim=-1)
-        # add token to current output
+        # get last token(s) of highest probability
+        out = torch.argmax(out, dim=-1)[:, -1] # shape: (batch_size, 1)
+        out = out.contiguous().view(-1, 1)
+        # add token to current output (batch_size, output_size + 1)
         output = torch.cat((output, out), dim=-1)
     
     return output.numpy()
