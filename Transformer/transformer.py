@@ -7,7 +7,7 @@ from layers import Encoder, Decoder
 class Transformer(nn.Module):
     
     def __init__(self, n_tokens, maxlen, pad_idx=0, dm=512, nhead=8, layers=6, 
-                    dff=2048, bias=False, dropout=0.1, eps=1e-6) -> None:
+                    dff=2048, bias=False, dropout=0.1, eps=1e-5) -> None:
         super().__init__()
         self.embeddings = Embeddings(n_tokens, dm, pad_idx)
         self.pos_encoder = PositionalEncoder(dm, maxlen, dropout)

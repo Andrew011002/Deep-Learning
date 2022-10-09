@@ -28,31 +28,13 @@ def generate_nopeak_pad_mask(tgt, pad_idx):
     tgt_mask = tgt_mask & tgt_nopeak_mask
     return tgt_mask
 
-def pad_inputs(tokens, pad_idx, end=True):
+def pad_tokens(tokens, pad_idx, end=True):
     padded = []
     maxlen = len(max(tokens, key=len))
     for seq in tokens:
         seq = pad_sequence(seq, maxlen, pad_idx, end=end)
         padded.append(seq)
     return np.array(padded, dtype=np.float64)
-
-def pad_outputs(tgt_tokens, out_tokens, pad_idx, end=True):
-    if len(tgt_tokens) != len(out_tokens):
-        raise ValueError("tgt_tokens and out_tokens must be the same dimension along the 0 axis")
-
-    if np.array_equal(tgt_tokens, out_tokens):
-        return pad_inputs(tgt_tokens, pad_idx, end=end)
-    else:
-        padded_tgt, padded_out = [], []
-        max_tgt_len, max_out_len = len(max(tgt_tokens, key=len)), len(max(out_tokens, key=len))
-        maxlen = max(max_tgt_len, max_out_len)
-
-        for tgt, out in zip(tgt_tokens, out_tokens):
-            tgt, out = pad_sequence(tgt, maxlen, pad_idx, end=end), pad_sequence(out, maxlen, pad_idx, end=end)
-            padded_tgt.append(tgt)
-            padded_out.append(out)
-        return np.array(padded_tgt, dtype=np.float64), np.array(padded_out, dtype=np.float64)
-        
 
 def pad_sequence(sequence, maxlen, pad_idx, end=True):
     seq_len = len(sequence)

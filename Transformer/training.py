@@ -1,10 +1,29 @@
 import torch
 import torch.nn as nn
-from utils import generate_masks, generate_nopeak_pad_mask
+import numpy as np
+from utils import generate_masks, generate_nopeak_pad_mask, pad_tokens
 
-def train(model, optimizer, dataloader, epochs=5, device=None):
 
-    print("Training Started")
+def ascending_data(vocab_size, n, maxlen, pad_idx=0):
+    inputs, outputs = [], []
+    for i in range(n):
+        seq_len = np.random.randint(1, maxlen + 1)
+        token = np.random.randint(1, vocab_size) - maxlen
+        token *= -1 if token < 0 else 1
+        seq = np.arange(token, token + seq_len)
+        src, tgt = seq, seq[::-1]
+        inputs.append(src), outputs.append(tgt)
+
+    inputs = pad_tokens(inputs, pad_idx=pad_idx, end=True)
+    outputs = pad_tokens(outputs, pad_idx=pad_idx, end=True)
+    return inputs, outputs
+
+
+
+def train(model, optimizer, dataloader, epochs=5, device=None, verbose=False):
+
+    if verbose:
+        print("Training Started")
     loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_idx)
     model.train()
     m = len(dataloader)
@@ -13,7 +32,8 @@ def train(model, optimizer, dataloader, epochs=5, device=None):
     for epoch in range(epochs):
         
         # reset accumulative loss and display current epoch
-        print(f"Epoch {epoch + 1} Started")
+        if verbose:
+            print(f"Epoch {epoch + 1} Started")
         accum_loss = 0
 
         for i, data in enumerate(dataloader):
@@ -37,15 +57,18 @@ def train(model, optimizer, dataloader, epochs=5, device=None):
             # tally loss over time
             accum_loss += loss.item()
 
-            if (i + 1) % (m // 4) == 0 and (i + 1) != m:
-                # diplay info every 25% of an epoch
-                print(f"Epoch {epoch + 1} {(i + 1) / m * 100:.1f}% Complete | Current Loss: {accum_loss / (i + 1):.4f}")
+            if verbose:
+                if (i + 1) % int(m * verbose) == 0 and (i + 1) != m:
+                    # diplay info every 25% of an epoch
+                    print(f"Epoch {epoch + 1} {(i + 1) / m * 100:.1f}% Complete | Current Loss: {accum_loss / (i + 1):.4f}")
         net_loss += accum_loss / m
         # display info after end of epoch
-        print(f"Epoch {epoch + 1} Complete | Epoch Average Loss: {accum_loss / m:.4f}")
+        if verbose:
+            print(f"Epoch {epoch + 1} Complete | Epoch Average Loss: {accum_loss / m:.4f}")
     net_loss /= epochs
     # display info after end of training
-    print(f"Training Complete | Overall Average Loss: {net_loss:.4f}")
+    if verbose:
+        print(f"Training Complete | Overall Average Loss: {net_loss:.4f}")
     return net_loss
 
 def predict(model, src, sos_idx, eos_idx, maxlen, device=None):
@@ -66,9 +89,9 @@ def predict(model, src, sos_idx, eos_idx, maxlen, device=None):
     e_out, attn = model.encoder(x, src_mask=src_mask)
 
     # create output tensor(s)
-    output = torch.tensor([sos_idx]).unsqueeze(0).long().to(device) # generate sos
+    output = torch.tensor([sos_idx]).unsqueeze(0).long() # generate sos
     batch_size = src.size(0)
-    output = output.repeat(batch_size, 1)
+    output = output.repeat(batch_size, 1).to(device)
 
     # predict one token at a time
     while output.size(1) < maxlen:
