@@ -73,7 +73,7 @@ def train(model, optimizer, dataloader, epochs=5, device=None, verbose=False):
         print(f"Training Complete | Overall Average Loss: {net_loss:.4f}")
     return net_loss
 
-def predict(model, src, sos_idx, eos_idx, maxlen, device=None):
+def predict(model, src, sos, maxlen, device=None):
     # src inshape: (batch_size, src_len,)
 
     # preprocess
@@ -91,7 +91,7 @@ def predict(model, src, sos_idx, eos_idx, maxlen, device=None):
     e_out, attn = model.encoder(x, src_mask=src_mask)
 
     # create output tensor(s)
-    output = torch.tensor([sos_idx]).unsqueeze(0).long() # generate sos
+    output = torch.tensor([sos]).unsqueeze(0).long() # generate sos
     batch_size = src.size(0)
     output = output.repeat(batch_size, 1).to(device)
 
@@ -113,6 +113,49 @@ def predict(model, src, sos_idx, eos_idx, maxlen, device=None):
         output = torch.cat((output, out), dim=-1)
     
     return output.numpy()
+
+def prompt(model, tokenizer, sos, eos, maxlen, device=None):
+    # get input and tokenize
+    text = [input("Enter in the sequence of text:\n\n").strip()]
+    seq = tokenizer.encode(text)
+    model.eval()
+    softmax = nn.Softmax(dim=-1)
+
+    # embed and pos encode source
+    src = torch.tensor(seq.astype(int)).unsqueeze(0).long().to(device)
+    src = model.embeddings(src)
+    src = model.pos_encoder(src)
+
+    # pass through encoder
+    e_out, attn = model.encoder(src, src_mask=None)
+
+    # create output tensor
+    out = torch.tensor([sos]).unsqueeze(0).to(device)
+    # predict sos from src until maxlen or eos token hit
+    while out.size(1) <= maxlen:  
+        # embed and pos encode out
+        x = model.embeddings(out)
+        x = model.pos_encoder(x)
+
+        # pass through decoder and unembded with probabilities
+        d_out, attn, attn = model.decoder(e_out, x, src_mask=None, tgt_mask=None)
+        pred = softmax(torch.matmul(d_out, model.wu.T))
+
+        # get token with highest prediction
+        print(pred.size())
+        pred = torch.argmax(out, dim=-1)
+        print(pred.size())
+        pred = pred[-1] if pred.dim() == 1 else pred[:, -1]
+        pred = pred.contiguous().view(-1, 1)
+
+        # combine prediction
+        out = torch.cat((out, pred), dim=-1)
+        
+        # predicted eos
+        if pred.item() == eos:
+            return tokenizer.deocde(out.numpy().squeeze())
+    # maxlen exceeded
+    return tokenizer.decode(out.numpy().squeeze())
 
 if __name__ == "__main__":
     pass
