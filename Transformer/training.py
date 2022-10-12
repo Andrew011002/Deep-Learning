@@ -139,13 +139,10 @@ def prompt(model, tokenizer, sos, eos, maxlen, device=None):
 
         # pass through decoder and unembded with probabilities
         d_out, attn, attn = model.decoder(e_out, x, src_mask=None, tgt_mask=None)
-        pred = softmax(torch.matmul(d_out, model.wu.T))
+        prob = softmax(torch.matmul(d_out, model.wu.T))
 
         # get token with highest prediction
-        print(pred.size())
-        pred = torch.argmax(out, dim=-1)
-        print(pred.size())
-        pred = pred[-1] if pred.dim() == 1 else pred[:, -1]
+        pred = torch.argmax(prob, dim=-1)[:, -1]
         pred = pred.contiguous().view(-1, 1)
 
         # combine prediction
