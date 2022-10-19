@@ -20,8 +20,6 @@ def ascending_data(vocab_size, n, maxlen, sos, eos, pad_idx):
     outputs = pad_tokens(outputs, pad_idx=pad_idx, end=True)
     return inputs, outputs
 
-
-
 def train(model, optimizer, dataloader, epochs=5, device=None, verbose=False):
 
     if verbose:
@@ -73,46 +71,40 @@ def train(model, optimizer, dataloader, epochs=5, device=None, verbose=False):
         print(f"Training Complete | Overall Average Loss: {net_loss:.4f}")
     return net_loss
 
-def predict(model, src, sos, maxlen, device=None):
+def predict(model, sequences, sos, maxlen, device=None):
     # src inshape: (batch_size, src_len,)
 
     # preprocess
     model.eval()
     softmax = nn.Softmax(dim=-1)
 
-    # encode src 
-    src = torch.from_numpy(src).long().to(device) # (unknown, src_len)
+    # create src tensor(s)
+    src = torch.from_numpy(sequences).long().to(device) # (unknown, src_len)
     src = src.unsqueeze(0) if src.dim() < 2 else src # (batch_size, src_len)
     src_mask = (src != model.pad_idx).unsqueeze(-2).to(device)
-    # embed and positionally encode src
-    x = model.embeddings(src)
-    x = model.pos_encoder(x)
-    # pass through encoder layers
-    e_out, attn = model.encoder(x, src_mask=src_mask)
 
-    # create output tensor(s)
-    output = torch.tensor([sos]).unsqueeze(0).long() # generate sos
+    # create tgt tensor(s)
+    tgt = torch.tensor([sos]).unsqueeze(0).long() # generate sos
     batch_size = src.size(0)
-    output = output.repeat(batch_size, 1).to(device)
+    tgt = tgt.repeat(batch_size, 1).to(device)
 
     # predict one token at a time
-    while output.size(1) < maxlen:
-        # decode from src and current output
-        tgt_mask = generate_nopeak_pad_mask(output, model.pad_idx).to(device)
-        # embed and positionally encoder output
-        x = model.embeddings(output)
-        x = model.pos_encoder(x)
-        # pass through decoder layers
-        d_out, attn1, attn2 = model.decoder(e_out, x, src_mask=src_mask, tgt_mask=tgt_mask)
-        # unembed then apply softmax
-        out = softmax(torch.matmul(d_out, model.wu.T))
+    while tgt.size(1) < maxlen:
+        print(tgt.size())
+        
+        # get model output
+        out = model(src, tgt, src_mask=src_mask)
+        # get probability distribution
+        prob = softmax(out)
+
         # get last token(s) of highest probability
-        out = torch.argmax(out, dim=-1)[:, -1] # shape: (batch_size, 1)
-        out = out.contiguous().view(-1, 1)
-        # add token to current output (batch_size, output_size + 1)
-        output = torch.cat((output, out), dim=-1)
+        pred = torch.argmax(prob, dim=-1)[:, -1] # shape: (batch_size, 1)
+        pred = pred.contiguous().view(-1, 1)
+
+        # add token to current tgt (batch_size, output_size + 1)
+        tgt = torch.cat((tgt, pred), dim=-1)
     
-    return output.numpy()
+    return tgt.numpy()
 
 def prompt(model, tokenizer, sos, eos, maxlen, device=None):
     # get input and tokenize
@@ -121,38 +113,30 @@ def prompt(model, tokenizer, sos, eos, maxlen, device=None):
     model.eval()
     softmax = nn.Softmax(dim=-1)
 
-    # embed and pos encode source
+    # create src & tgt tensor
     src = torch.tensor(seq.astype(int)).unsqueeze(0).long().to(device)
-    src = model.embeddings(src)
-    src = model.pos_encoder(src)
+    tgt = torch.tensor([sos]).unsqueeze(0).to(device)
 
-    # pass through encoder
-    e_out, attn = model.encoder(src, src_mask=None)
-
-    # create output tensor
-    out = torch.tensor([sos]).unsqueeze(0).to(device)
     # predict sos from src until maxlen or eos token hit
-    while out.size(1) <= maxlen:  
-        # embed and pos encode out
-        x = model.embeddings(out)
-        x = model.pos_encoder(x)
+    while tgt.size(1) <= maxlen:  
 
-        # pass through decoder and unembded with probabilities
-        d_out, attn, attn = model.decoder(e_out, x, src_mask=None, tgt_mask=None)
-        prob = softmax(torch.matmul(d_out, model.wu.T))
+        # get model output 
+        out = model(src, tgt, src_mask=None, tgt_mask=None)
+        # get probability distribution
+        prob = softmax(out)
 
-        # get token with highest prediction
+        # get token with highest probability
         pred = torch.argmax(prob, dim=-1)[:, -1]
         pred = pred.contiguous().view(-1, 1)
 
         # combine prediction
-        out = torch.cat((out, pred), dim=-1)
+        tgt = torch.cat((tgt, pred), dim=-1)
         
         # predicted eos
         if pred.item() == eos:
-            return tokenizer.deocde(out.numpy().squeeze())
+            return tokenizer.deocde(tgt.numpy().squeeze())
     # maxlen exceeded
-    return tokenizer.decode(out.numpy().squeeze())
+    return tokenizer.decode(tgt.numpy().squeeze())
 
 if __name__ == "__main__":
     pass

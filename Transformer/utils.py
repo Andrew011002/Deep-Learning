@@ -19,7 +19,6 @@ def generate_masks(source, targets, pad_idx):
     # shape src_mask: (batch_size, 1, seq_len) tgt_mask: (batch_size, tgt_len, tgt_len)
     return src_mask, tgt_mask
 
-
 def generate_nopeak_pad_mask(tgt, pad_idx):
     tgt_len = tgt.size(1)
     tgt_mask = (tgt != pad_idx).unsqueeze(-2)
@@ -32,6 +31,7 @@ def pad_tokens(tokens, pad_idx, end=True):
     padded = []
     maxlen = len(max(tokens, key=len))
     for seq in tokens:
+        seq = np.array(seq)
         seq = pad_sequence(seq, maxlen, pad_idx, end=end)
         padded.append(seq)
     return np.array(padded, dtype=np.float64)
