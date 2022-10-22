@@ -1,24 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from utils import generate_masks, generate_nopeak_pad_mask, pad_tokens
-
-
-def ascending_data(vocab_size, n, maxlen, sos, eos, pad_idx):
-    inputs, outputs = [], []
-    base = np.array([sos, eos])
-    for i in range(n):
-        seq_len = np.random.randint(1, maxlen + 1)
-        token = np.random.randint(1, vocab_size) - maxlen
-        token *= -1 if token < 0 else 1
-        seq = np.arange(token, token + seq_len)
-        seq = np.insert(base, 1, seq)
-        src, tgt = seq, seq[::-1]
-        inputs.append(src), outputs.append(tgt)
-
-    inputs = pad_tokens(inputs, pad_idx=pad_idx, end=True)
-    outputs = pad_tokens(outputs, pad_idx=pad_idx, end=True)
-    return inputs, outputs
+from utils import generate_masks
 
 def train(model, optimizer, dataloader, epochs=5, device=None, verbose=False):
 
