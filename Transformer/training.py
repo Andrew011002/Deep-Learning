@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import numpy as np
 from utils import generate_masks
 
 def train(model, optimizer, dataloader, epochs=5, device=None, verbose=False):
@@ -73,8 +72,7 @@ def predict(model, sequences, sos, maxlen, device=None):
 
     # predict one token at a time
     while tgt.size(1) < maxlen:
-        print(tgt.size())
-        
+
         # get model output
         out = model(src, tgt, src_mask=src_mask)
         # get probability distribution
@@ -83,7 +81,6 @@ def predict(model, sequences, sos, maxlen, device=None):
         # get last token(s) of highest probability
         pred = torch.argmax(prob, dim=-1)[:, -1] # shape: (batch_size, 1)
         pred = pred.contiguous().view(-1, 1)
-
         # add token to current tgt (batch_size, output_size + 1)
         tgt = torch.cat((tgt, pred), dim=-1)
     

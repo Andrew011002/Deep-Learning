@@ -56,9 +56,7 @@ def pad_sequence(sequence, maxlen, pad_idx, end=True):
 
 def pad_outputs(tokens_1, tokens_2, pad_idx, end=True):
     # find max len between the pair of tokens
-    maxlen1 = len(max(tokens_1, key=len))
-    maxlen2 = len(max(tokens_2, key=len))
-    maxlen = max(maxlen1, maxlen2)
+    maxlen = max(len(max(tokens_1, key=len)), len(max(tokens_2, key=len)))
     padded_1, padded_2 = [], []
     # pad all seqs in both tokens with same maxlen
     for seq_1, seq_2 in zip(tokens_1, tokens_2):
@@ -69,13 +67,36 @@ def pad_outputs(tokens_1, tokens_2, pad_idx, end=True):
         # return as array of ints for both 
     return np.array(padded_1, dtype=np.int64), np.array(padded_2, dtype=np.int64)
 
-def truncate_tokens(tokens, maxlen):
-    # modify tokens inplace
-    for i, seq in enumerate(tokens):
-        # truncate seq larger than maxlen
-        if len(seq) > maxlen:
-            seq = seq[:maxlen]
-            tokens[i] = seq
+def truncate_tokens(tokens, maxlen, delete=False):
+    truncated = []
+    # delete seqs that exceed maxlen
+    if delete:
+        for seq in tokens:
+            # only add seq if in limits of maxlen
+            if len(seq) <= maxlen:
+                truncated.append(seq)
+    # truncate seqs that exceed maxlen
+    else:
+        for seq in tokens:
+            seq = np.array(seq)
+            # truncate seq larger than maxlen
+            if len(seq) > maxlen:
+                seq = seq[:maxlen]
+            truncated.append(seq)
+    # return as array of objects
+    return np.array(truncated, dtype=object)
+
+def truncate_outputs(tokens_1, tokens_2, maxlen, delete=False):
+    truncated_1, truncated_2 = [], []
+    # delete seqs that exceed maxlen
+    if delete:
+        for seq_1, seq_2 in zip(tokens_1, tokens_2):
+            # only add seq pair if in limits of maxlen
+            if len(seq_1) <= maxlen >= len(seq_2):
+                truncated_1.append(seq_1), truncated_2.append(seq_2)
+        return np.array(truncated_1, dtype=object), np.array(truncated_2, dtype=object)
+    # truncate seqs that exceed maxlen and return as array of objects for both
+    return truncate_tokens(tokens_1, maxlen, delete=False), truncate_tokens(tokens_2, maxlen, delete=False)
 
 def ascending_data(vocab_size, n, maxlen, sos, eos, pad_idx):
     inputs, outputs = [], []
@@ -105,8 +126,4 @@ def create_dataloader(inputs, labels, batch_size=32, drop_last=True, shuffle=Fal
 
 if __name__ == "__main__":
     pass
-    
-    
-
-    
     
