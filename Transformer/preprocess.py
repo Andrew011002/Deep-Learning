@@ -72,8 +72,9 @@ class BytePairEncoder:
         self.corpus = corpus
         self.model = model
         self.frequencies = self.get_word_freqs(corpus, model)
-        self.characters = self.get_characters(self.frequencies, special_tokens)
+        self.vocab = self.get_characters(self.frequencies, special_tokens)
         self.splits = self.generate_splits(self.frequencies)
+        self.merges = defaultdict(str)
 
     def get_word_freqs(self, corpus, model):
         
@@ -136,28 +137,73 @@ class BytePairEncoder:
         # get the split for words
         for word in frequencies.keys():
             split = splits[word]
-            n = len(split)
             # only merge for words with splits larger than 1
-            if n > 1:
-                i = 0
-                # find the pair in the word if it exists
-                while i < n - 1:
-                    # exists in words
-                    if split[i] == pair[0] and split[i + 1] == pair[1]:
-                        # merge
-                        split = split[:i] + [pair[0] + pair[1]] + split[i + 2:]
-                    # not found look further
-                    else:
-                        i += 1
-                # update the split
-                splits[word] = split
+            if len(split) == 1:
+                continue
+            i = 0
+            # find the pair in the word if it exists
+            while i < len(split) - 1:
+                # exists in words
+                if split[i] == pair[0] and split[i + 1] == pair[1]:
+                    # merge
+                    split = split[:i] + [pair[0] + pair[1]] + split[i + 2:]
+                # not found look further
+                else:
+                    i += 1
+            # update the split
+            splits[word] = split
 
         return splits 
 
     def update(self):
+        # find pair with highest frequency
         pair = self.compute_max_pair(self.splits, self.frequencies)
+        # update merges
+        self.merges[pair] = pair[0] + pair[1]
+        # update splits
         self.splits = self.merge_pair(pair, self.splits, self.frequencies)
-        self.characters.append(pair[0] + pair[1])
+        # update vocab
+        self.vocab.append(pair[0] + pair[1])
+
+    def train(self):
+        # find new merges until desired vocab size
+        while len(self.vocab) < self.vocab_size:
+            self.update()
+
+    def tokenize(self, data, model=None):
+        # get tokenizer for pre-tokenization
+        if model is None:
+            model = "bert-base-uncased"
+        tokenizer = AutoTokenizer.from_pretrained(model)
+
+        tokenized = []
+        for text in data:
+            # get words and their offsets
+            words = tokenizer.backend_tokenizer.pre_tokenizer.pre_tokenize_str(text)
+            # get the splits for text
+            splits = [[char for char in word] for word, offset in words]
+            # modify word split if it contains a merge
+            for pair, merge in self.merges.items():
+                i = 0
+                # try to find a merge in the split
+                for index, split in enumerate(splits):
+                    # only merge for words with splits larger than 1
+                    if len(split) == 1:
+                        continue
+                    # look for merge within split
+                    while i < len(split) - 1:
+                        # merge within split
+                        if split[i] == pair[0] and split[i + 1] == pair[1]:
+                            split = split[:i] + [merge] + split[i + 2:]
+                        # merge not in split keep looking
+                        else:
+                            i += 1
+                    # update split based on what was modified
+                    splits[index] = split
+            # create the modifed text with merges and add to data
+            tokens = sum(splits, [])
+            tokenized.append(tokens)
+        return tokenized
     
 class PreProcess:
 
@@ -284,16 +330,9 @@ class PreProcess:
 
 
 if __name__ == '__main__':
-    corpus = ["hello my name is tonimo", "what's for dinner Joe?", 
-            "I think Charles is not better than max", "I am the very best at F1"]
+    pass
 
-    bce = BytePairEncoder(corpus, 100)
-    print(bce.frequencies, "\n")
-    print(bce.characters, "\n")
-    print(bce.splits, "\n")
-    bce.update()
-    print(bce.characters, "\n")
-    print(bce.splits, "\n")
+    
     
     
     
