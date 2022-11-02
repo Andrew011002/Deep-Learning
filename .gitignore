@@ -2,3 +2,4 @@ test.csv
 deep-learning-env/
 deep_learning/
 Transformer/__pycache__
+.DS_Store
