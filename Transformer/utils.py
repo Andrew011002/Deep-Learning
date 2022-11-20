@@ -2,7 +2,6 @@ import torch
 import numpy as np
 import pandas as pd
 from torch.utils.data import TensorDataset, DataLoader, IterableDataset
-from tokenizer import WordPieceTokenizer
 
 def generate_masks(source, targets, pad_idx):
     # inshape source: (batch_size, inputs_len) targets: (batch_size, outputs_len) pad_idx: (,)
@@ -93,7 +92,6 @@ must match the data type of labels ({type(labels[0])})")
             return list(input_sample), list(label_sample)
         return input_sample, label_sample
 
-
     # returns a dataframe of data
     def dataframe(self, headers=None):
         if headers is None:
@@ -113,16 +111,15 @@ must match the data type of labels ({type(labels[0])})")
     def __str__(self):
         return str(self.dataframe())
 
-
-def create_dataloader(inputs, labels, batch_size=32, drop_last=True, shuffle=False, **dataloader_kwargs):
-    inputs, labels = np.array(inputs), np.array(labels)
-    # create tensors
-    inputs, labels = torch.from_numpy(inputs), torch.from_numpy(labels)
-    tensorset = TensorDataset(inputs, labels)
-    # create dataloader with specified args
-    dataloader = DataLoader(tensorset, batch_size=batch_size, shuffle=shuffle, 
-                            drop_last=drop_last, **dataloader_kwargs)
-    return dataloader
+    def dataloader(self, batch_size=32, shuffle=False, drop_last=True, **dataloader_kwargs):
+        # create tensors
+        inputs, labels = self.tensors()
+        tensorset = TensorDataset(inputs, labels)
+        # create dataloader with specified args
+        dataloader = DataLoader(tensorset, batch_size=batch_size, shuffle=shuffle, 
+                                drop_last=drop_last, **dataloader_kwargs)
+        return dataloader
+    
 
 if __name__ == "__main__":
     pass
