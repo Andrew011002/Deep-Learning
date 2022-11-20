@@ -17,6 +17,7 @@ class WordPieceTokenizer:
                         pre_tokenizer, special_tokens)
         self.trained = False
 
+    # will build tokenizer given args or from defaults
     def init_tokenizer(self, vocab, unknown_token, prefix, normalizer, 
                         pre_tokenizer, special_tokens):
         # defaults
@@ -26,10 +27,12 @@ class WordPieceTokenizer:
             pre_tokenizer = defaults["pretokenizer"]
         if special_tokens is None:
             self.special_tokens = defaults["special tokens"]
+        else:
+            self.special_tokens = special_tokens
 
         # set kwargs for retraining
         self.kwargs = {"unknown_token": unknown_token, "prefix": prefix, "normalizer": normalizer, 
-                        "pre_tokenizer": pre_tokenizer, "special_tokens": special_tokens}
+                        "pre_tokenizer": pre_tokenizer, "special_tokens": self.special_tokens}
         
         # set tokenizer attrs
         tokenizer = Tokenizer(models.WordPiece(unk_token=unknown_token, vocab=vocab))
@@ -42,9 +45,9 @@ class WordPieceTokenizer:
         # train tokenizer over corpus
         trainer = trainers.WordPieceTrainer(vocab_size=size, show_progress=False, 
                                 special_tokens=list(self.special_tokens.values()))
-        self.tokenizer.train_from_iterator(corpus, trainer=trainer)
         self.corpus = corpus
         self.size = size
+        self.tokenizer.train_from_iterator(corpus, trainer=trainer)
         self.trained = True
         # init post processor for input sequences
         cls, sep = self.special_tokens["cls"], self.special_tokens["sep"]
@@ -54,20 +57,21 @@ class WordPieceTokenizer:
                                 pair=f"{cls}:0 $A:0 {sep}:0 $B:1 {sep}:1",
                                 special_tokens=[(cls, cls_id), (sep, sep_id)])
 
+    # enables padding and truncation
     def pruncate(self, maxlen, end=True):
         pad = self.special_tokens["pad"]
         pad_id = self.tokenizer.token_to_id(pad)
         direction = "right" if end else "left"
-        # enable padding and truncation for maxlen
         self.tokenizer.enable_padding(direction=direction, pad_id=pad_id, 
                                     pad_token=pad, length=maxlen)
         self.tokenizer.enable_truncation(max_length=maxlen, direction=direction)
 
+    # disable padding and truncation
     def inference(self):
-        # disable padding and truncation
         self.tokenizer.no_padding()
         self.tokenizer.no_truncation()
 
+    # encodes input to tokens or ids
     def encode(self, data, model=False):
         # single sequence input
         if isinstance(data, str):
@@ -80,7 +84,7 @@ class WordPieceTokenizer:
         encoded = []
         # list of sequences/sequence pairs
         for sequence in data:
-            if isinstance(data, tuple):
+            if isinstance(sequence, tuple):
                 tokens = self.tokenizer.encode(*sequence)
             else:
                 tokens = self.tokenizer.encode(sequence)
@@ -91,27 +95,37 @@ class WordPieceTokenizer:
                 encoded.append(tokens.tokens)
         return encoded
 
-    def decode(self, data):
+    # decodies ids to tokens
+    def decode(self, data, special_tokens=True):
         # single encoded ids
         if isinstance(data[0], int):
-            text = self.tokenizer.decode(data)
+            text = self.tokenizer.decode(data, skip_special_tokens=not special_tokens)
             return text
         decoded = []
         # list of encoded ids
         for encodings in data:
-            text = self.tokenizer.decode(encodings)
+            text = self.tokenizer.decode(encodings, skip_special_tokens=not special_tokens)
             decoded.append(text)
         return decoded
 
+    # returns entire vocab
     def vocab(self):
         return self.tokenizer.get_vocab()
 
+    # saves tokenizer as json
     def save(self, filename):
         self.tokenizer.save(f"{filename}.json")
 
+    # total vocabulary
     def __len__(self):
         return self.size
 
+    # gets id of token in vocab
+    def __getitem__(self, token):
+        vocab = self.vocab()
+        return vocab.get(token, KeyError(f"{token} not in vocab"))
+
+# loads saved tokenizer
 def load_tokenizer(filename):
     return Tokenizer.from_file(f"{filename}.json")
 

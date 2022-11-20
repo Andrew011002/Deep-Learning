@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from utils import generate_masks
 
-def train(model, optimizer, dataloader, epochs=5, device=None, verbose=False):
+def train(model, optimizer, dataloader, epochs=5, device=None, verbose=True):
 
     if verbose:
         print("Training Started")
@@ -84,17 +84,17 @@ def predict(model, sequences, sos, maxlen, device=None):
         # add token to current tgt (batch_size, output_size + 1)
         tgt = torch.cat((tgt, pred), dim=-1)
     
-    return tgt.numpy()
+    return sequences, tgt.numpy()
 
 def prompt(model, tokenizer, sos, eos, maxlen, device=None):
     # get input and tokenize
     text = [input("Enter in the sequence of text:\n\n").strip()]
-    seq = tokenizer.encode(text)
+    seq = tokenizer.encode(text, model=True)
     model.eval()
     softmax = nn.Softmax(dim=-1)
 
     # create src & tgt tensor
-    src = torch.tensor(seq.astype(int)).unsqueeze(0).long().to(device)
+    src = torch.tensor(seq).unsqueeze(0).long().to(device)
     tgt = torch.tensor([sos]).unsqueeze(0).to(device)
 
     # predict sos from src until maxlen or eos token hit
@@ -114,9 +114,9 @@ def prompt(model, tokenizer, sos, eos, maxlen, device=None):
         
         # predicted eos
         if pred.item() == eos:
-            return tokenizer.deocde(tgt.numpy().squeeze())
+            return tokenizer.deocde(tgt.squeeze().tolist(), special_tokens=False)
     # maxlen exceeded
-    return tokenizer.decode(tgt.numpy().squeeze())
+    return tokenizer.decode(tgt.squeeze().tolist(), special_tokens=False)
 
 if __name__ == "__main__":
     pass

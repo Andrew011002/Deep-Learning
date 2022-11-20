@@ -76,7 +76,8 @@ must match the data type of labels ({type(labels[0])})")
         return self.inputs + self.labels
 
     def sample(self):
-        return np.random.choice(self.inputs), np.random.choice(self.labels)
+        index = np.random.randint(self.size)
+        return self[index]
 
     # returns a sampled batch of specified batch size
     def batch(self, batch_size):
@@ -110,6 +111,13 @@ must match the data type of labels ({type(labels[0])})")
 
     def __str__(self):
         return str(self.dataframe())
+
+    # gives back a tokenized dataset
+    def tokenized(self, tokenizer, model=False):
+        inputs, labels = self.list()
+        input_tokens, label_tokens = tokenizer.encode(inputs, model=model), \
+            tokenizer.encode(labels, model=model)
+        return Dataset(input_tokens, label_tokens)
 
     def dataloader(self, batch_size=32, shuffle=False, drop_last=True, **dataloader_kwargs):
         # create tensors
