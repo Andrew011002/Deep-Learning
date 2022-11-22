@@ -6,16 +6,16 @@ from layers import Encoder, Decoder
 
 class Transformer(nn.Module):
     
-    def __init__(self, n_tokens, maxlen, pad_idx=0, dm=512, nhead=8, layers=6, 
+    def __init__(self, vocab_size, maxlen, pad_id, dm=512, nhead=8, layers=6, 
                     dff=2048, bias=False, dropout=0.1, eps=1e-5) -> None:
         super().__init__()
-        self.embeddings = Embeddings(n_tokens, dm, pad_idx)
+        self.embeddings = Embeddings(vocab_size, dm, pad_id)
         self.pos_encoder = PositionalEncoder(dm, maxlen, dropout)
         self.encoder = Encoder(dm, nhead, dff, layers, bias, dropout, eps)          
         self.decoder = Decoder(dm, nhead, dff, layers, bias, dropout, eps)
-        self.wu = self.embeddings.linear()
+        self.wu = self.embeddings.unembedding()
         self.softmax = nn.Softmax(dim=-1)
-        self.pad_idx = pad_idx
+        self.pad_id = pad_id
         self.xavier_init()
 
     def forward(self, src, tgt, src_mask=None, tgt_mask=None):

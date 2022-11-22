@@ -1,4 +1,4 @@
-from typing import Iterable
+
 from tokenizers import decoders, models, normalizers, pre_tokenizers,\
 processors, trainers, Tokenizer
 
@@ -58,13 +58,14 @@ class WordPieceTokenizer:
                                 special_tokens=[(cls, cls_id), (sep, sep_id)])
 
     # enables padding and truncation
-    def pruncate(self, maxlen, end=True):
+    def pruncate(self, maxlen=None, end=True):
         pad = self.special_tokens["pad"]
         pad_id = self.tokenizer.token_to_id(pad)
         direction = "right" if end else "left"
         self.tokenizer.enable_padding(direction=direction, pad_id=pad_id, 
                                     pad_token=pad, length=maxlen)
-        self.tokenizer.enable_truncation(max_length=maxlen, direction=direction)
+        if maxlen is not None:
+            self.tokenizer.enable_truncation(max_length=maxlen, direction=direction)
 
     # disable padding and truncation
     def inference(self):
@@ -73,40 +74,28 @@ class WordPieceTokenizer:
 
     # encodes input to tokens or ids
     def encode(self, data, model=False):
-        # single sequence input
+        # handle single sequence or pair
         if isinstance(data, str):
-            tokens = self.tokenizer.encode(data)
-            return tokens.ids if model else tokens.tokens
-        # pair of sequence inputs
-        if isinstance(data, tuple) and len(data) == 2:
-            tokens = self.tokenizer.encode(*data)
-            return tokens.ids if model else tokens.tokens
-        encoded = []
-        # list of sequences/sequence pairs
-        for sequence in data:
-            if isinstance(sequence, tuple):
-                tokens = self.tokenizer.encode(*sequence)
-            else:
-                tokens = self.tokenizer.encode(sequence)
-            # inputs for model or for reading
-            if model:
-                encoded.append(tokens.ids)
-            else:
-                encoded.append(tokens.tokens)
-        return encoded
+            data = [data]
+        elif isinstance(data, tuple) and len(data) == 2:
+            data = [data]
 
+        # get encodings
+        encodings = self.tokenizer.encode_batch(data)
+        encoded = []
+        for encoding in encodings:
+            # add tokens or ids
+            if model:
+                encoded.append(encoding.ids)
+            else:
+                encoded.append(encoding.tokens)
+        return encoded
+        
     # decodies ids to tokens
     def decode(self, data, special_tokens=True):
-        # single encoded ids
-        if isinstance(data[0], int):
-            text = self.tokenizer.decode(data, skip_special_tokens=not special_tokens)
-            return text
-        decoded = []
-        # list of encoded ids
-        for encodings in data:
-            text = self.tokenizer.decode(encodings, skip_special_tokens=not special_tokens)
-            decoded.append(text)
-        return decoded
+        # decode the sequence(s)
+        tokens = self.tokenizer.decode_batch(data, not special_tokens)
+        return tokens
 
     # returns entire vocab
     def vocab(self):
@@ -131,14 +120,10 @@ def load_tokenizer(filename):
 
 
 if __name__ == "__main__":
-    corpus = ["This is an escence to the beginning of what is Physics II. Phyics\
-         II is a great course for learning how the things we work with every day\
-             tend to work and operate. There's many special cases in which it is used"]
-    tokenizer = WordPieceTokenizer()
-    tokenizer.train(100, corpus)
-    tokenizer.pruncate()
-    print(tokenizer.encode("pad at all now its too long"))
+    pass
+
     
+
 
 
 

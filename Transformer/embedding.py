@@ -13,7 +13,7 @@ class Embeddings(nn.Module):
         # inshape: (batch_size, seq_len)
         return self.embedding(x)
     
-    def linear(self):
+    def unembedding(self):
         # weight matrix for unembedding
         return self.embedding.weight
 

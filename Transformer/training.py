@@ -1,12 +1,13 @@
 import torch
 import torch.nn as nn
+import numpy as np
 from utils import generate_masks
 
 def train(model, optimizer, dataloader, epochs=5, device=None, verbose=True):
 
     if verbose:
         print("Training Started")
-    loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_idx)
+    loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
     model.train()
     m = len(dataloader)
     net_loss = 0
@@ -24,7 +25,7 @@ def train(model, optimizer, dataloader, epochs=5, device=None, verbose=True):
             src, tgt, out = inputs, labels[:, :-1], labels[:, 1:] # shape src: (batch_size, srclen) tgt & out: (batch_size, outlen)
             src, tgt, out = src.long().to(device), tgt.long().to(device), out.long().to(device)
             # generate the mask
-            src_mask, tgt_mask = generate_masks(src, tgt, model.pad_idx)
+            src_mask, tgt_mask = generate_masks(src, tgt, model.pad_id)
             src_mask, tgt_mask = src_mask.to(device), tgt_mask.to(device)
 
             # zero the gradient
@@ -53,17 +54,18 @@ def train(model, optimizer, dataloader, epochs=5, device=None, verbose=True):
         print(f"Training Complete | Overall Average Loss: {net_loss:.4f}")
     return net_loss
 
-def predict(model, sequences, sos, maxlen, device=None):
-    # src inshape: (batch_size, src_len,)
+def predict(sequences, model, tokenizer, sos, maxlen, device=None):
+    # sequence inshape: (batch_size, src_len,)
+    ids = tokenizer.encode(sequences, model=True)
+    ids = np.array(ids, dtype=int)
 
-    # preprocess
+    # inference
     model.eval()
     softmax = nn.Softmax(dim=-1)
 
     # create src tensor(s)
-    src = torch.from_numpy(sequences).long().to(device) # (unknown, src_len)
-    src = src.unsqueeze(0) if src.dim() < 2 else src # (batch_size, src_len)
-    src_mask = (src != model.pad_idx).unsqueeze(-2).to(device)
+    src = torch.from_numpy(ids).long().to(device) # (unknown, src_len)
+    src_mask = (src != model.pad_id).unsqueeze(-2).to(device)
 
     # create tgt tensor(s)
     tgt = torch.tensor([sos]).unsqueeze(0).long() # generate sos
@@ -83,18 +85,26 @@ def predict(model, sequences, sos, maxlen, device=None):
         pred = pred.contiguous().view(-1, 1)
         # add token to current tgt (batch_size, output_size + 1)
         tgt = torch.cat((tgt, pred), dim=-1)
-    
-    return sequences, tgt.numpy()
+
+    # create continuations
+    predictions = tokenizer.deocde(tgt.tolist(), special_tokens=False)
+    outputs = []
+    # combine seq & predictions
+    for seq, pred in zip(sequences, predictions):
+        outputs.append(f"{seq} -> {pred}")
+    return outputs
 
 def prompt(model, tokenizer, sos, eos, maxlen, device=None):
     # get input and tokenize
-    text = [input("Enter in the sequence of text:\n\n").strip()]
-    seq = tokenizer.encode(text, model=True)
+    sequence = input("Enter in the sequence of text:\n\n").strip()
+    ids = tokenizer.encode(sequence, model=True)
+
+    # inference
     model.eval()
     softmax = nn.Softmax(dim=-1)
 
     # create src & tgt tensor
-    src = torch.tensor(seq).unsqueeze(0).long().to(device)
+    src = torch.tensor(ids).unsqueeze(0).long().to(device)
     tgt = torch.tensor([sos]).unsqueeze(0).to(device)
 
     # predict sos from src until maxlen or eos token hit

@@ -2,14 +2,15 @@ import torch
 import numpy as np
 import pandas as pd
 from torch.utils.data import TensorDataset, DataLoader, IterableDataset
+from datasets import load_dataset
 
-def generate_masks(source, targets, pad_idx):
-    # inshape source: (batch_size, inputs_len) targets: (batch_size, outputs_len) pad_idx: (,)
+def generate_masks(source, targets, pad_id):
+    # inshape source: (batch_size, inputs_len) targets: (batch_size, outputs_len) pad_id: (,)
     tgt_len = targets.size(1)
 
     # create padded mask for src & tgt 
-    src_mask = (source != pad_idx).unsqueeze(-2)
-    tgt_mask = (targets != pad_idx).unsqueeze(-2)
+    src_mask = (source != pad_id).unsqueeze(-2)
+    tgt_mask = (targets != pad_id).unsqueeze(-2)
 
     # create subsequent mask for tgt (no peak) shape tgt_nopeak_mask: (1, tgt_len, tgt_len)
     tgt_nopeak_mask = torch.triu(torch.ones((1, tgt_len, tgt_len)) == 1)
@@ -20,11 +21,11 @@ def generate_masks(source, targets, pad_idx):
     # shape src_mask: (batch_size, 1, seq_len) tgt_mask: (batch_size, tgt_len, tgt_len)
     return src_mask, tgt_mask
 
-def generate_nopeak_pad_mask(tgt, pad_idx):
+def generate_nopeak_pad_mask(tgt, pad_id):
     # inshape tgt: (batch_size, tgt_len)
     tgt_len = tgt.size(1)
     # padded mask (True where no pad False otherwise)
-    tgt_mask = (tgt != pad_idx).unsqueeze(-2)
+    tgt_mask = (tgt != pad_id).unsqueeze(-2)
     # create subsequent mask
     tgt_nopeak_mask = torch.triu(torch.ones((1, tgt_len, tgt_len)) == 1)
     tgt_nopeak_mask = tgt_nopeak_mask.transpose(1, 2)
@@ -32,8 +33,12 @@ def generate_nopeak_pad_mask(tgt, pad_idx):
     tgt_mask = tgt_mask & tgt_nopeak_mask
     return tgt_mask
 
+# loads a dataset from huggingface hub
+def load(*args, **kwargs):
+    return load_dataset(*args, **kwargs)
+
 class Dataset(IterableDataset):
-    
+
     def __init__(self, inputs, labels):
         if len(inputs) != len(labels):
             raise ValueError(f"the size of inputs ({len(inputs)}) \
