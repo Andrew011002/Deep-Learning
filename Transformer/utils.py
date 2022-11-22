@@ -33,6 +33,10 @@ def generate_nopeak_pad_mask(tgt, pad_id):
     tgt_mask = tgt_mask & tgt_nopeak_mask
     return tgt_mask
 
+# finds maxlen between inputs and labels
+def get_maxlen(inputs, labels):
+    return max(len(max(inputs, key=len)), len(max(labels, key=len)))
+
 # loads a dataset from huggingface hub
 def load(*args, **kwargs):
     return load_dataset(*args, **kwargs)
@@ -118,7 +122,7 @@ must match the data type of labels ({type(labels[0])})")
         return str(self.dataframe())
 
     # gives back a tokenized dataset
-    def tokenized(self, tokenizer, model=False):
+    def tokenized(self, tokenizer, model=True):
         inputs, labels = self.list()
         input_tokens, label_tokens = tokenizer.encode(inputs, model=model), \
             tokenizer.encode(labels, model=model)
@@ -132,7 +136,6 @@ must match the data type of labels ({type(labels[0])})")
         dataloader = DataLoader(tensorset, batch_size=batch_size, shuffle=shuffle, 
                                 drop_last=drop_last, **dataloader_kwargs)
         return dataloader
-    
 
 if __name__ == "__main__":
     pass

@@ -56,6 +56,9 @@ def train(model, optimizer, dataloader, epochs=5, device=None, verbose=True):
 
 def predict(sequences, model, tokenizer, sos, maxlen, device=None):
     # sequence inshape: (batch_size, src_len,)
+
+    # get ids
+    tokenizer.pruncate()
     ids = tokenizer.encode(sequences, model=True)
     ids = np.array(ids, dtype=int)
 
@@ -87,14 +90,18 @@ def predict(sequences, model, tokenizer, sos, maxlen, device=None):
         tgt = torch.cat((tgt, pred), dim=-1)
 
     # create continuations
-    predictions = tokenizer.deocde(tgt.tolist(), special_tokens=False)
+    predictions = tokenizer.decode(tgt.tolist(), special_tokens=False)
+    print(predictions)
     outputs = []
     # combine seq & predictions
     for seq, pred in zip(sequences, predictions):
         outputs.append(f"{seq} -> {pred}")
     return outputs
 
-def prompt(model, tokenizer, sos, eos, maxlen, device=None):
+def prompt(model, tokenizer, sos, eos, maxlen=None, device=None):
+    if maxlen is None:
+        maxlen = 25
+
     # get input and tokenize
     sequence = input("Enter in the sequence of text:\n\n").strip()
     ids = tokenizer.encode(sequence, model=True)
@@ -121,12 +128,13 @@ def prompt(model, tokenizer, sos, eos, maxlen, device=None):
 
         # combine prediction
         tgt = torch.cat((tgt, pred), dim=-1)
-        
+
         # predicted eos
         if pred.item() == eos:
-            return tokenizer.deocde(tgt.squeeze().tolist(), special_tokens=False)
+            return tokenizer.decode(tgt.squeeze().tolist()[1:], special_tokens=False)
+
     # maxlen exceeded
-    return tokenizer.decode(tgt.squeeze().tolist(), special_tokens=False)
+    return tokenizer.decode(tgt.squeeze().tolist()[1:], special_tokens=False)
 
 if __name__ == "__main__":
     pass

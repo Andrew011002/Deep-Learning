@@ -59,13 +59,18 @@ class WordPieceTokenizer:
 
     # enables padding and truncation
     def pruncate(self, maxlen=None, end=True):
-        pad = self.special_tokens["pad"]
-        pad_id = self.tokenizer.token_to_id(pad)
-        direction = "right" if end else "left"
-        self.tokenizer.enable_padding(direction=direction, pad_id=pad_id, 
-                                    pad_token=pad, length=maxlen)
-        if maxlen is not None:
-            self.tokenizer.enable_truncation(max_length=maxlen, direction=direction)
+        # only enable when trained
+        if self.trained:
+            # get args
+            pad = self.special_tokens["pad"]
+            pad_id = self.tokenizer.token_to_id(pad)
+            direction = "right" if end else "left"
+            # enable padding
+            self.tokenizer.enable_padding(direction=direction, pad_id=pad_id, 
+                                        pad_token=pad, length=maxlen)
+            # enable truncation (if possible)
+            if maxlen is not None:
+                self.tokenizer.enable_truncation(max_length=maxlen, direction=direction)
 
     # disable padding and truncation
     def inference(self):
@@ -94,7 +99,8 @@ class WordPieceTokenizer:
     # decodies ids to tokens
     def decode(self, data, special_tokens=True):
         # decode the sequence(s)
-        tokens = self.tokenizer.decode_batch(data, not special_tokens)
+        print(type(data[0]))
+        tokens = self.tokenizer.decode_batch(data, skip_special_tokens=not special_tokens)
         return tokens
 
     # returns entire vocab
