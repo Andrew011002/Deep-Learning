@@ -45,7 +45,7 @@ class Transformer(nn.Module):
                 nn.init.xavier_uniform_(param)
 
 if __name__ == "__main__":
-    pass
+    print("hello")
 
     
         

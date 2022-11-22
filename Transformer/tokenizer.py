@@ -99,7 +99,6 @@ class WordPieceTokenizer:
     # decodies ids to tokens
     def decode(self, data, special_tokens=True):
         # decode the sequence(s)
-        print(type(data[0]))
         tokens = self.tokenizer.decode_batch(data, skip_special_tokens=not special_tokens)
         return tokens
 

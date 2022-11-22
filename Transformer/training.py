@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from utils import generate_masks
 
-def train(model, optimizer, dataloader, epochs=5, device=None, verbose=True):
+def train(model, optimizer, dataloader, epochs=5, verbose=True, device=None):
 
     if verbose:
         print("Training Started")
@@ -91,7 +91,6 @@ def predict(sequences, model, tokenizer, sos, maxlen, device=None):
 
     # create continuations
     predictions = tokenizer.decode(tgt.tolist(), special_tokens=False)
-    print(predictions)
     outputs = []
     # combine seq & predictions
     for seq, pred in zip(sequences, predictions):
@@ -131,10 +130,10 @@ def prompt(model, tokenizer, sos, eos, maxlen=None, device=None):
 
         # predicted eos
         if pred.item() == eos:
-            return tokenizer.decode(tgt.squeeze().tolist()[1:], special_tokens=False)
+            return f"{sequence} -> {tokenizer.decode(tgt.tolist(), special_tokens=False)[0]}"
 
     # maxlen exceeded
-    return tokenizer.decode(tgt.squeeze().tolist()[1:], special_tokens=False)
+    return f"{sequence} -> {tokenizer.decode(tgt.tolist(), special_tokens=False)[0]}"
 
 if __name__ == "__main__":
     pass
