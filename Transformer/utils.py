@@ -92,15 +92,17 @@ must match the data type of labels ({type(labels[0])})")
     def batch(self, batch_size):
         if batch_size > self.size:
             raise ValueError(f"cannot sample batch larger than size ({self.size})")
-        input_sample, label_sample = np.random.choice(self.inputs, (batch_size, ), replace=False),\
-            np.random.choice(self.inputs, (batch_size, ), replace=False)
+        # get random slices
+        indices = np.random.choice(len(self), (batch_size, ), replace=False)
+        inputs, labels = self.numpy()
+        input_samples, label_samples = inputs[indices], labels[indices]
         
         # return correct list object
         if isinstance(self.inputs, torch.Tensor):
-            return torch.from_numpy(input_sample), torch.from_numpy(label_sample)
+            return torch.from_numpy(input_samples), torch.from_numpy(label_samples)
         elif isinstance(self.inputs, list):
-            return list(input_sample), list(label_sample)
-        return input_sample, label_sample
+            return input_samples.tolist(), label_samples.tolist()
+        return input_samples, label_samples
 
     # returns a dataframe of data
     def dataframe(self, headers=None):

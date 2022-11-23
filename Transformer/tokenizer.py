@@ -41,7 +41,11 @@ class WordPieceTokenizer:
         tokenizer.decoder = decoders.WordPiece(prefix)
         return tokenizer
 
-    def train(self, size, corpus):
+    def train(self, corpus, size=None):
+        # default vocab size for wpt
+        if size is None:
+            size = 30000
+
         # train tokenizer over corpus
         trainer = trainers.WordPieceTrainer(vocab_size=size, show_progress=False, 
                                 special_tokens=list(self.special_tokens.values()))
