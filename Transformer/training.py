@@ -23,9 +23,12 @@ def train(model, optimizer, dataloader, epochs=5, verbose=True, device=None):
             # get source and targets
             inputs, labels = data
             src, tgt, out = inputs, labels[:, :-1], labels[:, 1:] # shape src: (batch_size, srclen) tgt & out: (batch_size, outlen)
-            src, tgt, out = src.long().to(device), tgt.long().to(device), out.long().to(device)
+            src, tgt, out = src.long(), tgt.long(), out.long()
             # generate the mask
             src_mask, tgt_mask = generate_masks(src, tgt, model.pad_id)
+            
+            # move to device
+            src, tgt, out = src.to(device), tgt.to(device), out.to(device)
             src_mask, tgt_mask = src_mask.to(device), tgt_mask.to(device)
 
             # zero the gradient
@@ -67,12 +70,16 @@ def predict(sequences, model, tokenizer, sos, maxlen, device=None):
     softmax = nn.Softmax(dim=-1)
 
     # create src tensor(s)
-    src = torch.from_numpy(ids).long().to(device) # (unknown, src_len)
-    src_mask = (src != model.pad_id).unsqueeze(-2).to(device)
+    src = torch.from_numpy(ids).long() # (unknown, src_len)
+    src_mask = (src != model.pad_id).unsqueeze(-2)
 
     # create tgt tensor(s)
     tgt = torch.tensor([sos]).unsqueeze(0).long() # generate sos
     batch_size = src.size(0)
+    
+    # move tensors to device
+    src = src.to(device)
+    src_mask = src_mask.to(device)
     tgt = tgt.repeat(batch_size, 1).to(device)
 
     # predict one token at a time

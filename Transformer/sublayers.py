@@ -7,7 +7,7 @@ class ScaledDotProductAttention(nn.Module):
 
     def __init__(self, dk) -> None:
         super().__init__()
-        self.norm = 1 / torch.sqrt(torch.Tensor([dk]))
+        self.norm = 1 / np.sqrt(dk) # torch.sqrt(torch.Tensor([dk])) 
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, q, k, v, mask=None):
