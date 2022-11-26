@@ -57,47 +57,53 @@ def train(model, optimizer, dataloader, epochs=5, verbose=True, device=None):
         print(f"Training Complete | Overall Average Loss: {net_loss:.4f}")
     return net_loss
 
-def predict(sequences, model, tokenizer, sos, maxlen, device=None):
+def predict(sequences, model, tokenizer, sos, eos, maxlen, device=None):
     # sequence inshape: (batch_size, src_len,)
 
-    # get ids
-    tokenizer.pruncate()
-    ids = tokenizer.encode(sequences, model=True)
-    ids = np.array(ids, dtype=int)
-
     # inference
-    model.eval()
+    tokenizer.inference()
+    token_ids = tokenizer.encode(sequences, model=True)
     softmax = nn.Softmax(dim=-1)
+    model.eval()
 
-    # create src tensor(s)
-    src = torch.from_numpy(ids).long() # (unknown, src_len)
-    src_mask = (src != model.pad_id).unsqueeze(-2)
 
-    # create tgt tensor(s)
-    tgt = torch.tensor([sos]).unsqueeze(0).long() # generate sos
-    batch_size = src.size(0)
-    
-    # move tensors to device
-    src = src.to(device)
-    src_mask = src_mask.to(device)
-    tgt = tgt.repeat(batch_size, 1).to(device)
+    # get prediction for each sequence
+    predictions = []
+    for ids in token_ids:
+        # create src tensor
+        ids = np.array(ids, dtype=int)
+        src = torch.from_numpy(ids).unsqueeze(0).long() # (unknown, src_len)
+        src_mask = (src != model.pad_id).unsqueeze(-2)
 
-    # predict one token at a time
-    while tgt.size(1) < maxlen:
+        # create tgt tensor
+        tgt = torch.tensor([sos]).unsqueeze(0).long() # generate sos
+        
+        # move tensors to device
+        src = src.to(device)
+        src_mask = src_mask.to(device)
+        tgt = tgt.to(device)
 
-        # get model output
-        out = model(src, tgt, src_mask=src_mask)
-        # get probability distribution
-        prob = softmax(out)
+        # predict one token at a time
+        while tgt.size(1) < maxlen:
+            # get model output
+            out = model(src, tgt, src_mask=src_mask)
+            # get probability distribution
+            prob = softmax(out)
 
-        # get last token(s) of highest probability
-        pred = torch.argmax(prob, dim=-1)[:, -1] # shape: (batch_size, 1)
-        pred = pred.contiguous().view(-1, 1)
-        # add token to current tgt (batch_size, output_size + 1)
-        tgt = torch.cat((tgt, pred), dim=-1)
+            # get last token(s) of highest probability
+            pred = torch.argmax(prob, dim=-1)[:, -1] # shape: (batch_size, 1)
+            pred = pred.contiguous().view(-1, 1)
+            # add token to current tgt (batch_size, output_size + 1)
+            tgt = torch.cat((tgt, pred), dim=-1)
+
+            # done prediction
+            if pred.item() == eos:
+                break
+        # store tokens of predictions
+        predictions.append(tgt.squeeze().tolist())
 
     # create continuations
-    predictions = tokenizer.decode(tgt.tolist(), special_tokens=False)
+    predictions = tokenizer.decode(predictions, special_tokens=False)
     outputs = []
     # combine seq & predictions
     for seq, pred in zip(sequences, predictions):
@@ -137,7 +143,7 @@ def prompt(model, tokenizer, sos, eos, maxlen=None, device=None):
 
         # predicted eos
         if pred.item() == eos:
-            return f"{sequence} -> {tokenizer.decode(tgt.tolist(), special_tokens=False)[0]}"
+            break
 
     # maxlen exceeded
     return f"{sequence} -> {tokenizer.decode(tgt.tolist(), special_tokens=False)[0]}"

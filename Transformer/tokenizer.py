@@ -50,9 +50,7 @@ class WordPieceTokenizer:
         trainer = trainers.WordPieceTrainer(vocab_size=size, show_progress=False, 
                                 special_tokens=list(self.special_tokens.values()))
         self.corpus = corpus
-        self.size = size
         self.tokenizer.train_from_iterator(corpus, trainer=trainer)
-        self.trained = True
         # init post processor for input sequences
         cls, sep = self.special_tokens["cls"], self.special_tokens["sep"]
         cls_id, sep_id = self.tokenizer.token_to_id(cls), self.tokenizer.token_to_id(sep)
@@ -60,6 +58,10 @@ class WordPieceTokenizer:
                                 single=f"{cls}:0 $A:0 {sep}:0",
                                 pair=f"{cls}:0 $A:0 {sep}:0 $B:1 {sep}:1",
                                 special_tokens=[(cls, cls_id), (sep, sep_id)])
+        
+        # set vocab size and trained
+        self.size = len(self.vocab())
+        self.trained = True
 
     # enables padding and truncation
     def pruncate(self, maxlen=None, end=True):
@@ -113,6 +115,9 @@ class WordPieceTokenizer:
     # saves tokenizer as json
     def save(self, filename):
         self.tokenizer.save(f"{filename}.json")
+
+    def add(self, tokens):
+        self.tokenizer.add_tokens(tokens)
 
     # total vocabulary
     def __len__(self):
