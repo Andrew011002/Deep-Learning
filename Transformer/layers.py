@@ -41,7 +41,6 @@ class Encoder(nn.Module):
         out = x
         return out, attn
 
-
 class DecoderLayer(nn.Module):
 
     def __init__(self, dm, nhead, dff, bias=False, dropout=0.1, eps=1e-5) -> None:

@@ -2,43 +2,25 @@
 from tokenizers import decoders, models, normalizers, pre_tokenizers,\
 processors, trainers, Tokenizer
 
-defaults = {"normalizer": normalizers.Sequence([normalizers.Strip(), normalizers.Lowercase(), 
-                            normalizers.StripAccents(), normalizers.NFD()]),
-            "pretokenizer": pre_tokenizers.Whitespace(),
-            "special tokens": {"unk": "[UNK]", "cls": "[CLS]", "sep": "[SEP]", 
-                                "pad": "[PAD]", "mask": "[MASK]"}
-            }
+class BaseTokenizer:
 
-class WordPieceTokenizer:
-
-    def __init__(self, vocab=None, unknown_token="[UNK]", prefix="##", normalizer=None, 
-                    pre_tokenizer=None, special_tokens=None): 
-        self.tokenizer = self.init_tokenizer(vocab, unknown_token, prefix, normalizer, 
-                        pre_tokenizer, special_tokens)
+    def __init__(self, unknown_token=None, model=None, normalizer=None, pre_tokenizer=None, 
+                decoder=None, trainer=None, special_tokens=None):
+        self.tokenizer = self.init_tokenizer(unknown_token, model, normalizer,
+            pre_tokenizer, decoder, trainer, special_tokens)
         self.trained = False
 
-    # will build tokenizer given args or from defaults
-    def init_tokenizer(self, vocab, unknown_token, prefix, normalizer, 
-                        pre_tokenizer, special_tokens):
-        # defaults
-        if normalizer is None:
-            normalizer = defaults["normalizer"]
-        if pre_tokenizer is None:
-            pre_tokenizer = defaults["pretokenizer"]
-        if special_tokens is None:
-            self.special_tokens = defaults["special tokens"]
-        else:
-            self.special_tokens = special_tokens
+    def init_tokenizer(self, unknown_token, model, normalizer, 
+        pre_tokenizer, deocder, trainer, special_tokens):
 
-        # set kwargs for retraining
-        self.kwargs = {"unknown_token": unknown_token, "prefix": prefix, "normalizer": normalizer, 
-                        "pre_tokenizer": pre_tokenizer, "special_tokens": self.special_tokens}
-        
         # set tokenizer attrs
-        tokenizer = Tokenizer(models.WordPiece(unk_token=unknown_token, vocab=vocab))
-        tokenizer.normalizer = normalizer
+        tokenizer = Tokenizer(model(unk_token=unknown_token))
+        if normalizer is not None:
+            tokenizer.normalizer = normalizer
         tokenizer.pre_tokenizer = pre_tokenizer
-        tokenizer.decoder = decoders.WordPiece(prefix)
+        tokenizer.decoder = deocder
+        self.trainer = trainer
+        self.special_tokens = special_tokens
         return tokenizer
 
     def train(self, corpus, size=None):
@@ -47,17 +29,17 @@ class WordPieceTokenizer:
             size = 30000
 
         # train tokenizer over corpus
-        trainer = trainers.WordPieceTrainer(vocab_size=size, show_progress=False, 
-                                special_tokens=list(self.special_tokens.values()))
+        trainer = self.trainer(vocab_size=size, show_progress=False, 
+                    special_tokens=list(self.special_tokens.values()))
         self.corpus = corpus
         self.tokenizer.train_from_iterator(corpus, trainer=trainer)
         # init post processor for input sequences
-        cls, sep = self.special_tokens["cls"], self.special_tokens["sep"]
-        cls_id, sep_id = self.tokenizer.token_to_id(cls), self.tokenizer.token_to_id(sep)
+        start, end = self.special_tokens["start"], self.special_tokens["end"]
+        start_id, end_id = self.tokenizer.token_to_id(start), self.tokenizer.token_to_id(end)
         self.tokenizer.post_processor = processors.TemplateProcessing(
-                                single=f"{cls}:0 $A:0 {sep}:0",
-                                pair=f"{cls}:0 $A:0 {sep}:0 $B:1 {sep}:1",
-                                special_tokens=[(cls, cls_id), (sep, sep_id)])
+                                single=f"{start}:0 $A:0 {end}:0",
+                                pair=f"{start}:0 $A:0 {end}:0 $B:1 {end}:1",
+                                special_tokens=[(start, start_id), (end, end_id)])
         
         # set vocab size and trained
         self.size = len(self.vocab())
@@ -128,13 +110,40 @@ class WordPieceTokenizer:
         vocab = self.vocab()
         return vocab.get(token, KeyError(f"{token} not in vocab"))
 
+    # trys to encode then decode if possible
+    def __call__(self, data, model=False, special_tokens=True):
+        try: return self.encode(data, model=model)
+        except: 
+            try: return self.decode(data, special_tokens=special_tokens)
+            except:
+                raise ValueError(f"Can't interpret input {data}")
+
+class WordPieceTokenizer(BaseTokenizer):
+
+    def __init__(self, unknown_token="[UNK]"): 
+        super().__init__(unknown_token, model=models.WordPiece, 
+        normalizer=normalizers.Sequence([normalizers.Strip(), normalizers.Lowercase(), 
+                    normalizers.StripAccents(), normalizers.NFD()]), 
+        pre_tokenizer=pre_tokenizers.Whitespace(), decoder=decoders.WordPiece(prefix="##"),
+        trainer=trainers.WordPieceTrainer, 
+        special_tokens={"unk": "[UNK]", "start": "[CLS]", "end": "[SEP]", 
+                        "pad": "[PAD]", "mask": "[MASK]"})
+    
 # loads saved tokenizer
 def load_tokenizer(filename):
     return Tokenizer.from_file(f"{filename}.json")
 
+class BytePairEncodingTokenizer(BaseTokenizer):
+
+    def __init__(self, unknown_token=None):
+        super().__init__(unknown_token, model=models.BPE, normalizer=None, 
+        pre_tokenizer=pre_tokenizers.ByteLevel(add_prefix_space=False),
+        decoder=decoders.ByteLevel(), trainer=trainers.BpeTrainer, 
+        special_tokens={"start": "<|endoftext|>", "end": "<|endoftext|>"})
 
 if __name__ == "__main__":
     pass
+
 
     
 
