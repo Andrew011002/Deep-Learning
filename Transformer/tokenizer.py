@@ -72,8 +72,9 @@ class BaseTokenizer:
         return tokens
 
     # enables padding
-    def padon(self, maxlen=None, end=True, pad="[PAD]"):
+    def padon(self, maxlen=None, end=True, pad_id=0):
         end = "right" if end else "left"
+        pad = self.tokenizer.id_to_token(pad_id)
         self.tokenizer.enable_padding(direction=end, pad_id=self[pad],
                         pad_token=pad, length=maxlen)
 
@@ -115,6 +116,7 @@ class BaseTokenizer:
             except:
                 raise ValueError(f"Can't interpret input {data}")
 
+# my custom tokenizer
 class Nerdimizer(BaseTokenizer):
 
     def __init__(self, vocab=None):
@@ -122,19 +124,20 @@ class Nerdimizer(BaseTokenizer):
                                 "unknown": "[?]", "pad": "[P]", "mask": "[X]"})
 
 # saves tokenizer as json
-def save_tokenizer(path, name, tokenizer):
-    tokenizer.tokenizer.save(f"{path}/{name}.json")
+def save_tokenizer(tokenizer, path, name):
+    tokenizer.tokenizer.save(f"{path}{name}.json")
     print(f"Tokenizer saved to {path} as {name}.json")
 
 # loads saved tokenizer
 def load_tokenizer(path, name):
     tokenizer = BaseTokenizer()
-    tokenizer.set_tokenizer(Tokenizer.from_file(f"{path}/{name}.json"))
-    print(f"Tokenizer loaded from {path}/{name}.json")
+    tokenizer.set_tokenizer(Tokenizer.from_file(f"{path}{name}.json"))
+    print(f"Tokenizer loaded from {path}{name}.json")
     return tokenizer
 
 if __name__ == "__main__":
     pass
+    
 
 
     

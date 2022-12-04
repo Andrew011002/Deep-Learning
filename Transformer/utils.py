@@ -1,9 +1,8 @@
-import torch
 import os
+import torch
 import numpy as np
 import pandas as pd
 from torch.utils.data import TensorDataset, DataLoader, IterableDataset
-from datasets import load_dataset
 
 def generate_masks(source, targets, pad_id):
     # inshape source: (batch_size, inputs_len) targets: (batch_size, outputs_len) pad_id: (,)
@@ -37,10 +36,6 @@ def generate_nopeak_pad_mask(tgt, pad_id):
 # finds maxlen between inputs and labels
 def get_maxlen(inputs, labels):
     return max(len(max(inputs, key=len)), len(max(labels, key=len)))
-
-# loads a dataset from huggingface hub
-def load(*args, **kwargs):
-    return load_dataset(*args, **kwargs)
 
 class Dataset(IterableDataset):
 
@@ -143,18 +138,17 @@ must match the data type of labels ({type(labels[0])})")
 # saves the model to a path
 def save_model(model, path, name):
     # create path if non-existant
-    if not os.path.exists(path):
+    if path and not os.path.exists(path):
         os.makedirs(path)
     # save model to the path
-    torch.save(model.state_dict(), f"{path}/{name}.pth")
+    torch.save(model.state_dict(), f"{path}{name}.pth")
     print(f"Model params saved to {path} as {name}.pth")
 
 # loads a model params from a path
-def load_model(path, name, model_cls, **model_kwargs):
-    model = model_cls(**model_kwargs)
-    params = torch.load(f"{path}/{name}.pth")
+def load_model(model, path, name):
+    params = torch.load(f"{path}{name}.pth")
     model.load_state_dict(params)
-    print(f"Model params loaded from {path}/{name}.pth")
+    print(f"Model params loaded from {path}{name}.pth")
     return model
     
 if __name__ == "__main__":
