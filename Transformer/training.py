@@ -57,7 +57,7 @@ def train(model, optimizer, dataloader, epochs=5, verbose=True, device=None):
         print(f"Training Complete | Overall Average Loss: {net_loss:.4f}")
     return net_loss
 
-def predict(sequences, model, tokenizer, sos, eos, maxlen, device=None):
+def predict(sequences, model, tokenizer, start, end, maxlen, device=None):
     # sequence inshape: (batch_size, src_len,)
 
     # inference
@@ -65,7 +65,6 @@ def predict(sequences, model, tokenizer, sos, eos, maxlen, device=None):
     token_ids = tokenizer.encode(sequences, model=True)
     softmax = nn.Softmax(dim=-1)
     model.eval()
-
 
     # get prediction for each sequence
     predictions = []
@@ -76,7 +75,7 @@ def predict(sequences, model, tokenizer, sos, eos, maxlen, device=None):
         src_mask = (src != model.pad_id).unsqueeze(-2)
 
         # create tgt tensor
-        tgt = torch.tensor([sos]).unsqueeze(0).long() # generate sos
+        tgt = torch.tensor([start]).unsqueeze(0).long() # generate start
         
         # move tensors to device
         src = src.to(device)
@@ -97,7 +96,7 @@ def predict(sequences, model, tokenizer, sos, eos, maxlen, device=None):
             tgt = torch.cat((tgt, pred), dim=-1)
 
             # done prediction
-            if pred.item() == eos:
+            if pred.item() == end:
                 break
         # store tokens of predictions
         predictions.append(tgt.squeeze().tolist())
@@ -110,23 +109,26 @@ def predict(sequences, model, tokenizer, sos, eos, maxlen, device=None):
         outputs.append(f"{seq} -> {pred}")
     return outputs
 
-def prompt(model, tokenizer, sos, eos, maxlen=None, device=None):
+def prompt(model, tokenizer, start, end, maxlen=None, device=None):
+
+    # default
     if maxlen is None:
         maxlen = 25
+
+    # inference
+    model.eval()
+    tokenizer.inference()
+    softmax = nn.Softmax(dim=-1)
 
     # get input and tokenize
     sequence = input("Enter in the sequence of text:\n\n").strip()
     ids = tokenizer.encode(sequence, model=True)
 
-    # inference
-    model.eval()
-    softmax = nn.Softmax(dim=-1)
-
     # create src & tgt tensor
     src = torch.tensor(ids).unsqueeze(0).long().to(device)
-    tgt = torch.tensor([sos]).unsqueeze(0).to(device)
+    tgt = torch.tensor([start]).unsqueeze(0).to(device)
 
-    # predict sos from src until maxlen or eos token hit
+    # predict start from src until maxlen or end token hit
     while tgt.size(1) <= maxlen:  
 
         # get model output 
@@ -141,8 +143,8 @@ def prompt(model, tokenizer, sos, eos, maxlen=None, device=None):
         # combine prediction
         tgt = torch.cat((tgt, pred), dim=-1)
 
-        # predicted eos
-        if pred.item() == eos:
+        # predicted end
+        if pred.item() == end:
             break
 
     # maxlen exceeded

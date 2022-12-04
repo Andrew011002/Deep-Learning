@@ -1,4 +1,5 @@
 import torch
+import os
 import numpy as np
 import pandas as pd
 from torch.utils.data import TensorDataset, DataLoader, IterableDataset
@@ -139,6 +140,23 @@ must match the data type of labels ({type(labels[0])})")
                                 drop_last=drop_last, **dataloader_kwargs)
         return dataloader
 
+# saves the model to a path
+def save_model(model, path, name):
+    # create path if non-existant
+    if not os.path.exists(path):
+        os.makedirs(path)
+    # save model to the path
+    torch.save(model.state_dict(), f"{path}/{name}.pth")
+    print(f"Model params saved to {path} as {name}.pth")
+
+# loads a model params from a path
+def load_model(path, name, model_cls, **model_kwargs):
+    model = model_cls(**model_kwargs)
+    params = torch.load(f"{path}/{name}.pth")
+    model.load_state_dict(params)
+    print(f"Model params loaded from {path}/{name}.pth")
+    return model
+    
 if __name__ == "__main__":
     pass
 
