@@ -136,19 +136,28 @@ must match the data type of labels ({type(labels[0])})")
         return dataloader
 
 # saves the model to a path
-def save_model(model, path, name):
+def save_model(model, name=None, path=None):
+    # default
+    path = "" if path is None else path
+    name = "model" if name is None else name
+
     # create path if non-existant
     if path and not os.path.exists(path):
         os.makedirs(path)
     # save model to the path
     torch.save(model.state_dict(), f"{path}{name}.pth")
-    print(f"Model params saved to {path} as {name}.pth")
+    print(f"Model params saved as {name}.pth")
 
 # loads a model params from a path
-def load_model(model, path, name):
+def load_model(model, name=None, path=None):
+    # default
+    path = "" if path is None else path
+    name = "model" if name is None else name
+
+    # load parameters into model
     params = torch.load(f"{path}{name}.pth")
     model.load_state_dict(params)
-    print(f"Model params loaded from {path}{name}.pth")
+    print(f"Model params loaded from {name}.pth")
     return model
     
 if __name__ == "__main__":
