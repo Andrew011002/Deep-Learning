@@ -41,10 +41,10 @@ class Dataset(IterableDataset):
 
     def __init__(self, inputs, labels):
         if len(inputs) != len(labels):
-            raise ValueError(f"the size of inputs ({len(inputs)}) \
+            raise ValueError(f"The size of inputs ({len(inputs)}) \
 must match the size of labels ({len(labels)})")
         if type(inputs[0]) != type(labels[0]):
-            raise ValueError(f"the data type of inputs ({type(inputs[0])}) \
+            raise ValueError(f"The data type of inputs ({type(inputs[0])}) \
 must match the data type of labels ({type(labels[0])})")
         self.inputs = inputs
         self.labels = labels
@@ -60,7 +60,7 @@ must match the data type of labels ({type(labels[0])})")
     # returns data as tensors
     def tensors(self):
         if self.dtype == str or self.dtype == np.str_:
-            raise TypeError(f"torch does not support type {self.dtype}")
+            raise TypeError(f"PyTorch does not support type {self.dtype}")
         if isinstance(self.inputs, np.ndarray):
             return torch.from_numpy(self.inputs), torch.from_numpy(self.labels)
         return torch.tensor(self.inputs), torch.tensor(self.labels)
@@ -87,7 +87,7 @@ must match the data type of labels ({type(labels[0])})")
     # returns a sampled batch of specified batch size
     def batch(self, batch_size):
         if batch_size > self.size:
-            raise ValueError(f"cannot sample batch larger than size ({self.size})")
+            raise ValueError(f"Cannot sample batch larger than size ({self.size})")
         # get random slices
         indices = np.random.choice(len(self), (batch_size, ), replace=False)
         inputs, labels = self.numpy()
@@ -125,6 +125,14 @@ must match the data type of labels ({type(labels[0])})")
         input_tokens, label_tokens = tokenizer.encode(inputs, model=model), \
             tokenizer.encode(labels, model=model)
         return Dataset(input_tokens, label_tokens)
+
+    # finds the average length of tokenized sequences
+    def avg_tokenized_len(self, tokenizer):
+        inputs, labels = self.list()
+        # give back higher average of average lengths of sequences
+        m = sum(len(input) for input in tokenizer(inputs, model=True)) / self.size
+        n = sum(len(input) for input in tokenizer(labels, model=True)) / self.size
+        return int(np.rint(max(m, n))) # return as integer (can't pad to a float value)
 
     def dataloader(self, batch_size=32, shuffle=False, drop_last=True, **dataloader_kwargs):
         # create tensors
