@@ -3,7 +3,27 @@ import torch.nn as nn
 import numpy as np
 from utils import generate_masks
 
-def train(model, optimizer, dataloader, epochs=5, verbose=True, device=None):
+class Scheduler:
+
+    def __init__(self, optimizer, dm, warmup):
+        self.optimizer = optimizer
+        self.dm = dm
+        self.warmup = warmup
+        self.steps = 1
+
+    def step(self):
+        # calculate the learning rate
+        steps = self.steps
+        groups = self.optimizer.param_groups
+        lr = np.power(self.dm, -0.5) * \
+            min(np.power(steps, -0.5), steps * np.power(self.warmup, -1.5))
+        print(lr)
+        # apply the learning rate to optimizer
+        for group in groups:
+            group["lr"] = lr
+        self.steps += 1 # update num of steps
+
+def train(model, optimizer, scheduler, dataloader, epochs=5, verbose=True, device=None):
 
     if verbose:
         print("Training Started")
@@ -18,6 +38,7 @@ def train(model, optimizer, dataloader, epochs=5, verbose=True, device=None):
         if verbose:
             print(f"Epoch {epoch + 1} Started")
         accum_loss = 0
+        scheduler.step() # set current lr w/ scheduler
 
         for i, data in enumerate(dataloader):
             # get source and targets
@@ -152,3 +173,4 @@ def prompt(model, tokenizer, start, end, maxlen=None, device=None):
 
 if __name__ == "__main__":
     pass
+    
