@@ -17,7 +17,6 @@ class Scheduler:
         groups = self.optimizer.param_groups
         lr = np.power(self.dm, -0.5) * \
             min(np.power(steps, -0.5), steps * np.power(self.warmup, -1.5))
-        print(lr)
         # apply the learning rate to optimizer
         for group in groups:
             group["lr"] = lr
