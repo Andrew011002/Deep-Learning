@@ -3,26 +3,7 @@ import torch.nn as nn
 import numpy as np
 from utils import generate_masks
 
-class Scheduler:
-
-    def __init__(self, optimizer, dm, warmup):
-        self.optimizer = optimizer
-        self.dm = dm
-        self.warmup = warmup
-        self.steps = 1
-
-    def step(self):
-        # calculate the learning rate
-        steps = self.steps
-        groups = self.optimizer.param_groups
-        lr = np.power(self.dm, -0.5) * \
-            min(np.power(steps, -0.5), steps * np.power(self.warmup, -1.5))
-        # apply the learning rate to optimizer
-        for group in groups:
-            group["lr"] = lr
-        self.steps += 1 # update num of steps
-
-def train(model, optimizer, scheduler, dataloader, epochs=5, verbose=True, device=None):
+def train(model, optimizer, scheduler, dataloader, epochs=5, warmups=100, verbose=True, device=None):
 
     if verbose:
         print("Training Started")
@@ -37,7 +18,6 @@ def train(model, optimizer, scheduler, dataloader, epochs=5, verbose=True, devic
         if verbose:
             print(f"Epoch {epoch + 1} Started")
         accum_loss = 0
-        scheduler.step() # set current lr w/ scheduler
 
         for i, data in enumerate(dataloader):
             # get source and targets
@@ -71,7 +51,11 @@ def train(model, optimizer, scheduler, dataloader, epochs=5, verbose=True, devic
         # display info after end of epoch
         if verbose:
             print(f"Epoch {epoch + 1} Complete | Epoch Average Loss: {accum_loss / m:.4f}")
+    # apply scheduler after warmups
+    if epoch + 1 > warmups:
+        scheduler.step() 
     net_loss /= epochs
+
     # display info after end of training
     if verbose:
         print(f"Training Complete | Overall Average Loss: {net_loss:.4f}")
