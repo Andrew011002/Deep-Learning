@@ -106,14 +106,14 @@ def predict(sequences, model, tokenizer, start, end, maxlen, device=None):
         predictions.append(tgt.squeeze().tolist())
 
     # create continuations
-    predictions = tokenizer.decode(predictions, special_tokens=False)
+    predictions = tokenizer.decode(predictions)
     outputs = []
     # combine seq & predictions
     for seq, pred in zip(sequences, predictions):
         outputs.append(f"{seq} -> {pred}")
     return outputs
 
-def prompt(model, tokenizer, start, end, maxlen=20, device=None):
+def prompt(model, tokenizer, start, end, device=None):
     # default
 
     # inference
@@ -124,6 +124,7 @@ def prompt(model, tokenizer, start, end, maxlen=20, device=None):
     # get input and tokenize
     sequence = input("Enter in the sequence of text:\n\n").strip()
     ids = tokenizer.encode(sequence, model=True)
+    maxlen = len(ids[0])
 
     # create src & tgt tensor
     src = torch.tensor(ids).unsqueeze(0).long().to(device)
@@ -136,6 +137,7 @@ def prompt(model, tokenizer, start, end, maxlen=20, device=None):
         out = model(src, tgt, src_mask=None, tgt_mask=None)
         # get probability distribution
         prob = softmax(out)
+        print(prob)
 
         # get token with highest probability
         pred = torch.argmax(prob, dim=-1)[:, -1]
@@ -149,7 +151,7 @@ def prompt(model, tokenizer, start, end, maxlen=20, device=None):
             break
 
     # maxlen exceeded
-    return f"{sequence} -> {tokenizer.decode(tgt.tolist(), special_tokens=False)[0]}"
+    return f"{sequence} -> {tokenizer.decode(tgt.tolist())[0]}"
 
 if __name__ == "__main__":
     pass

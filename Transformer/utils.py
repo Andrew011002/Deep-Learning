@@ -153,13 +153,14 @@ def save_model(model, path=None):
     print(f"Model params saved")
 
 # loads a model params from a path
-def load_model(model, path=None):
+def load_model(model, path=None, device=None):
     # default
     path = "" if path is None else path
 
     # load parameters into model
-    params = torch.load(f"{path}.pth")
-    model.load_state_dict(params)
+    params = torch.load(f"{path}.pth", map_location=device)
+    if torch.cuda.is_available():
+        model.load_state_dict(params)
     print(f"Model params loaded")
     return model
     
