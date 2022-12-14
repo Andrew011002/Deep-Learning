@@ -124,25 +124,23 @@ class Nerdimizer(BaseTokenizer):
                                 "unknown": "[?]", "pad": "[P]", "mask": "[X]"})
 
 # saves tokenizer as json
-def save_tokenizer(tokenizer, name=None, path=None):
+def save_tokenizer(tokenizer, path=None):
     # default
     path = "" if path is None else path
-    name = "tokenizer" if name is None else name
 
     # save tokenizer to path
-    tokenizer.tokenizer.save(f"{path}{name}.json")
-    print(f"Tokenizer saved as {name}.json")
+    tokenizer.tokenizer.save(f"{path}.json")
+    print(f"Tokenizer saved")
 
 # loads saved tokenizer
-def load_tokenizer(name=None, path=None):
+def load_tokenizer(path=None):
     # default
     path = "" if path is None else path
-    name = "tokenizer" if name is None else name
 
     # set tokenizer for base tokenizer from path
     tokenizer = BaseTokenizer()
-    tokenizer.set_tokenizer(Tokenizer.from_file(f"{path}{name}.json"))
-    print(f"Tokenizer loaded from {name}.json")
+    tokenizer.set_tokenizer(Tokenizer.from_file(f"{path}.json"))
+    print(f"Tokenizer loaded")
     return tokenizer
 
 if __name__ == "__main__":
