@@ -80,16 +80,12 @@ must match the data type of labels ({type(labels[0])})")
             return torch.cat((self.inputs, self.labels), dim=0)
         return self.inputs + self.labels
 
-    def sample(self):
-        index = np.random.randint(self.size)
-        return self[index]
-
     # returns a sampled batch of specified batch size
-    def batch(self, batch_size):
-        if batch_size > self.size:
+    def sample(self, n=1):
+        if n > self.size:
             raise ValueError(f"Cannot sample batch larger than size ({self.size})")
         # get random slices
-        indices = np.random.choice(len(self), (batch_size, ), replace=False)
+        indices = np.random.choice(len(self), (n, ), replace=False)
         inputs, labels = self.numpy()
         input_samples, label_samples = inputs[indices], labels[indices]
         
@@ -127,12 +123,13 @@ must match the data type of labels ({type(labels[0])})")
         return Dataset(input_tokens, label_tokens)
 
     # finds the average length of tokenized sequences
-    def avg_tokenized_len(self, tokenizer):
+    def avg_tokenized_len(self, tokenizer, factor=1):
         inputs, labels = self.list()
         # give back higher average of average lengths of sequences
         m = sum(len(input) for input in tokenizer(inputs, model=True)) / self.size
         n = sum(len(input) for input in tokenizer(labels, model=True)) / self.size
-        return int(np.rint(max(m, n))) # return as integer (can't pad to a float value)
+        # apply factor to incorporate outlier sequences
+        return int(np.rint(max(m, n)) * factor)
 
     def dataloader(self, batch_size=32, shuffle=False, drop_last=True, **dataloader_kwargs):
         # create tensors
