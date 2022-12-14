@@ -113,11 +113,8 @@ def predict(sequences, model, tokenizer, start, end, maxlen, device=None):
         outputs.append(f"{seq} -> {pred}")
     return outputs
 
-def prompt(model, tokenizer, start, end, maxlen=None, device=None):
-
+def prompt(model, tokenizer, start, end, maxlen=20, device=None):
     # default
-    if maxlen is None:
-        maxlen = 25
 
     # inference
     model.eval()
