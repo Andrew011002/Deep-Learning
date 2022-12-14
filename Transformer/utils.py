@@ -33,9 +33,19 @@ def generate_nopeak_pad_mask(tgt, pad_id):
     tgt_mask = tgt_mask & tgt_nopeak_mask
     return tgt_mask
 
-# finds maxlen between inputs and labels
-def get_maxlen(inputs, labels):
-    return max(len(max(inputs, key=len)), len(max(labels, key=len)))
+# splits sequence pairs up to a desired size from a dataset
+def get_split(datadict, input_key, label_key, size=100000):
+    inputs, labels = [], []
+    count = 0
+    # add sequence pairs while the desired size isn't reached
+    for pair in datadict["translation"]:
+        inputs.append(pair[input_key])
+        labels.append(pair[label_key])
+        count += 1
+        # size reached
+        if count == size:
+            break
+    return inputs, labels
 
 class Dataset(IterableDataset):
 
@@ -123,13 +133,22 @@ must match the data type of labels ({type(labels[0])})")
         return Dataset(input_tokens, label_tokens)
 
     # finds the average length of tokenized sequences
-    def avg_tokenized_len(self, tokenizer, factor=1):
+    def avglen(self, tokenizer, factor=1):
         inputs, labels = self.list()
         # give back higher average of average lengths of sequences
         m = sum(len(input) for input in tokenizer(inputs, model=True)) / self.size
         n = sum(len(input) for input in tokenizer(labels, model=True)) / self.size
         # apply factor to incorporate outlier sequences
         return int(np.rint(max(m, n)) * factor)
+    
+    # gives back maxlen between tokenized sequences
+    def maxlen(self, tokenizer):
+        inputs, labels = self.list()
+        # find max longest sequence in inputs & labels
+        max_inputs = len(max(tokenizer(inputs), key=len))
+        max_labels = len(max(tokenizer(labels), key=len))
+        # give back greatest of the two
+        return max(max_inputs, max_labels)
 
     def dataloader(self, batch_size=32, shuffle=False, drop_last=True, **dataloader_kwargs):
         # create tensors

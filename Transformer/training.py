@@ -43,19 +43,20 @@ def train(model, optimizer, scheduler, dataloader, epochs=5, warmups=100, verbos
             # tally loss over time
             accum_loss += loss.item()
 
+            # diplay info every fraction of an epoch
             if verbose:
                 if (i + 1) % int(m * verbose) == 0 and (i + 1) != m:
-                    # diplay info every 25% of an epoch
                     print(f"Epoch {epoch + 1} {(i + 1) / m * 100:.1f}% Complete | Current Loss: {accum_loss / (i + 1):.4f}")
+
         net_loss += accum_loss / m
+        # apply scheduler after warmups
+        if epoch + 1 > warmups:
+            scheduler.step(accum_loss / m) 
         # display info after end of epoch
         if verbose:
             print(f"Epoch {epoch + 1} Complete | Epoch Average Loss: {accum_loss / m:.4f}")
-    # apply scheduler after warmups
-    if epoch + 1 > warmups:
-        scheduler.step() 
-    net_loss /= epochs
 
+    net_loss /= epochs # avg accum loss over epochs
     # display info after end of training
     if verbose:
         print(f"Training Complete | Overall Average Loss: {net_loss:.4f}")
