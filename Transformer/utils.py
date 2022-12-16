@@ -159,6 +159,69 @@ must match the data type of labels ({type(labels[0])})")
                                 drop_last=drop_last, **dataloader_kwargs)
         return dataloader
 
+class Checkpoint:
+
+    def __init__(self, model, optimizer, scheduler, epochs, path, overwrite=False, verbose=True):
+        self.model = model
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.epochs = epochs
+        self.path = path
+        self.overwrite = overwrite
+        self.epoch = 0
+        self.loss = None
+        self.verbose = verbose
+
+    def check(self, loss):
+        # save current model state
+        self.loss = loss
+        self.epoch += 1 # update steps taken
+        if (self.epoch) % self.epochs == 0:
+            self.save()
+
+    def save(self):
+        if os.path.exists(self.path):
+            os.makedirs(path)
+        # save same path
+        if self.overwrite:
+            path = f"{self.path}.pt"
+        # save diff path
+        else:
+            path = f"{self.path}-{self.epoch}.pt"
+
+        # save params of
+        torch.save({
+            "model_params": self.model.state_dict(),
+            "optimizer_params": self.optimizer.state_dict(),
+            "scheduler_params": self.scheduler.state_dict(),
+            "epoch": self.epoch,
+            "epochs": self.epochs,
+            "loss": self.loss
+        }, path)
+        if self.verbose:
+            print(f"Checkpoint saved")
+            
+    def load_checkpoint(self, tag="", device=None): 
+        # load checkpoint
+        path = f"{self.path}{tag}.pt"
+        checkpoint = torch.load(path, map_location=device) 
+        # overwrite current state of checkpoint
+        self.model.load_state_dict(checkpoint["model_params"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_params"])
+        self.scheduler.load_state_dict(checkpoint["scheduler_params"])
+        self.epoch = checkpoint["epoch"]
+        self.epochs = checkpoint["epochs"]
+        self.loss = checkpoint["loss"]
+        if self.verbose:
+            print(f"Checkpoint loaded")
+    
+    def state_dict(self):
+        return {"model": self.model,
+                "optimizer": self.optimizer,
+                "scheduler": self.scheduler,
+                "epoch": self.epoch,
+                "loss": self.loss}
+
 # saves the model to a path
 def save_model(model, path=None):
     # default
