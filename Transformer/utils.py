@@ -180,8 +180,9 @@ class Checkpoint:
             self.save()
 
     def save(self):
-        if os.path.exists(self.path):
-            os.makedirs(path)
+        # create path if not existent 
+        if not os.path.exists(self.path):
+            os.makedirs(self.path)
         # save same path
         if self.overwrite:
             path = f"{self.path}.pt"
