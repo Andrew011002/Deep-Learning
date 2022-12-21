@@ -105,8 +105,11 @@ class BaseTokenizer:
 
     # gets id of token in vocab
     def __getitem__(self, token):
-        vocab = self.vocab()
-        return vocab.get(token, KeyError(f"{token} not in vocab"))
+        if isinstance(token, int):
+            return self.tokenizer.id_to_token(token)
+        elif isinstance(token, str):
+            vocab = self.vocab()
+            return vocab.get(token, KeyError(f"{token} not in vocab"))
 
     # trys to encode then decode if possible
     def __call__(self, data, model=False):

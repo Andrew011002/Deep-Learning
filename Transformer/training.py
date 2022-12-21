@@ -147,6 +147,7 @@ def predict(sequences, model, tokenizer, start, end, maxlen, device=None):
     # get prediction for each sequence
     predictions = []
     for ids in token_ids:
+
         # create src tensor
         ids = np.array(ids, dtype=int)
         src = torch.from_numpy(ids).unsqueeze(0).long() # (unknown, src_len)
@@ -181,11 +182,7 @@ def predict(sequences, model, tokenizer, start, end, maxlen, device=None):
 
     # create continuations
     predictions = tokenizer.decode(predictions)
-    outputs = []
-    # combine seq & predictions
-    for seq, pred in zip(sequences, predictions):
-        outputs.append(f"{seq} -> {pred}")
-    return outputs
+    return predictions
 
 def prompt(model, tokenizer, start, end, device=None):
     # default
