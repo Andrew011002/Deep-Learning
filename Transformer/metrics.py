@@ -1,46 +1,54 @@
-import torch
 import numpy as np
 from training import predict
 from collections import Counter
 
 class Evaluator:
 
-    def __init__(self, dataset, tokenizer, start, end, sample=32, ngrams=4, bleu=30, device=None):
+    def __init__(self, dataset, tokenizer, start, end, sample=32, ngrams=4, threshold=30, device=None):
+        if sample > len(dataset):
+            raise ValueError(f"Sample size cannot exceed {len(dataset)}")
         self.dataset = dataset
         self.tokenizer = tokenizer
         self.start = start
         self.end = end
         self.sample = sample
         self.ngrams = ngrams
-        self.bleu = bleu
+        self.threshold = threshold
         self.device = device
+        self.bleu = 0
         self.passed = True
 
-    def evaluate(self, model):
+    def evaluate(self, model, verbose):
         # get inputs & references
-        tokenizer, start, end, ngrams, bleu, device = \
-            self.tokenizer, self.start, self.end, self.ngrams,  self.bleu, self.device
+        tokenizer, start, end, ngrams, device, bleu = \
+            self.tokenizer, self.start, self.end, self.ngrams, self.device, self.bleu
         samples = self.dataset.sample(self.sample)
         inputs = [pair[0] for pair in samples]
         references = [pair[1] for pair in samples]
         maxlen = len(max(references, key=len))
         # generate prediction
-        predictions = predict(inputs, model, tokenizer, start, end, maxlen, device)
+        predictions = predict(inputs, model, tokenizer, start, end, maxlen, True, device)
 
         # get BLEU scroes
         net_bleu = 0
         for pred, ref in zip(predictions, references):
             net_bleu += calc_ngrams_score(pred, ref, ngrams)["bleu"]
-        # average the scores and indicate whether the model passes
-        if net_bleu / len(inputs) >= bleu:
-            self.passed = False
+        # set best bleu score calculated
+        self.bleu = max(net_bleu / len(inputs), bleu)
+        # display information
+        if verbose:
+            print(f"BLEU: {self.bleu:.2f}")
 
-    def __call__(self):
-        return self.passed
+    def done(self):
+        return self.bleu >= self.threshold
 
-def calc_ngrams_score(prediction, reference, ngrams=4):
-    metric = {"bleu": None, "percisions": []}
+def calc_ngrams_score(prediction, reference, ngrams=4, start=None, end=None):
+    # remove special tokens
+    prediction = clean_sequence(prediction, start, end)
+    reference = clean_sequence(reference, start, end)
+    
     # find score score for n grams
+    metric = {"bleu": None, "percisions": []}
     for n in range(1, ngrams + 1):
         score = 0
         # generate ngrams
@@ -67,15 +75,21 @@ def get_ngram(sequence, ngram):
         output.append(" ".join(sequence[i: i + ngram]))
     return output
 
+# removes start or end if contained within sequence
+def clean_sequence(sequence, start, end):
+    if sequence[0] == start:
+        sequence = sequence[1:]
+    if sequence[-1] == end:
+        sequence - sequence[:-1]
+    return sequence
+
 # finds geometric mean over list of values
 def geometric_mean(scores):
-    return np.power(np.prod(scores), 1 / len(scores))
+    n = len(scores)
+    return np.power(np.prod(scores), 1 / n)
 
 if __name__ == "__main__":
-    prediction = "I have thirty six years too my guy".split()
-    reference = "I have thirty six".split()
-    print(calc_ngrams_score(prediction, reference))
-    
+    pass
 
 
 

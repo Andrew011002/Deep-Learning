@@ -4,7 +4,7 @@ import numpy as np
 from utils import generate_masks
 
 def train(dataloader, model, optimizer, scheduler=None, checkpoint=None, 
-            epochs=1000, warmups=100, verbose=True, device=None):
+        evaluator=None, epochs=1000, warmups=100, verbose=True, device=None):
 
     if verbose:
         print("Training Started")
@@ -59,6 +59,12 @@ def train(dataloader, model, optimizer, scheduler=None, checkpoint=None,
         # display info after end of epoch
         if verbose:
             print(f"Epoch {epoch + 1} Complete | Epoch Loss: {accum_loss / m:.4f}")
+        # evaluate model
+        if evaluator:
+            evaluator.evaluate(model, verbose)
+            # model meets bleu score (end training)
+            if evaluator.done():
+                break
 
     net_loss /= epochs # avg accum loss over epochs
     # display info after end of training
@@ -73,14 +79,15 @@ def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, devi
     model = info["model"]
     optimizer = info["optimizer"]
     scheduler = info["scheduler"]
+    evaluator = info["evaluator"]
     epoch = info["epoch"]
     net_loss = info["loss"]
-
-    if verbose:
-        print("Training continued")
     loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
     model.train()
     m = len(dataloader)
+
+    if verbose:
+        print("Training continued")
 
     for epoch in range(epoch, epochs):
         
@@ -121,13 +128,17 @@ def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, devi
         net_loss += accum_loss / m
         # apply scheduler after warmups
         if epoch + 1 > warmups and scheduler:
-            scheduler.step(accum_loss / m) 
-        # check on checkpoint
-        if checkpoint:
-            checkpoint.check(accum_loss / m)
+            scheduler.step(accum_loss / m)     
+        checkpoint.check(accum_loss / m)
         # display info after end of epoch
         if verbose:
             print(f"Epoch {epoch + 1} Complete | Epoch Loss: {accum_loss / m:.4f}")
+        # evaluate model
+        if evaluator:
+            evaluator.evaluate(model, verbose)
+            # model meets bleu score (end training)
+            if evaluator.done():
+                break
 
     net_loss /= epochs # avg accum loss over epochs
     # display info after end of training
@@ -135,7 +146,7 @@ def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, devi
         print(f"Training Complete | Training Loss: {net_loss:.4f}")
     return net_loss
 
-def predict(sequences, model, tokenizer, start, end, maxlen, device=None):
+def predict(sequences, model, tokenizer, start, end, maxlen, special_tokens=False, device=None):
     # sequence inshape: (batch_size, src_len,)
 
     # inference
@@ -181,7 +192,7 @@ def predict(sequences, model, tokenizer, start, end, maxlen, device=None):
         predictions.append(tgt.squeeze().tolist())
 
     # create continuations
-    predictions = tokenizer.decode(predictions)
+    predictions = tokenizer.decode(predictions, special_tokens)
     return predictions
 
 def prompt(model, tokenizer, start, end, device=None):

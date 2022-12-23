@@ -66,9 +66,9 @@ class BaseTokenizer:
         return encoded
         
     # decodies ids to tokens
-    def decode(self, data):
+    def decode(self, data, special_tokens=False):
         # decode the sequence(s)
-        tokens = self.tokenizer.decode_batch(data)
+        tokens = self.tokenizer.decode_batch(data, skip_special_tokens=not special_tokens)
         return tokens
 
     # enables padding
@@ -112,10 +112,10 @@ class BaseTokenizer:
             return vocab.get(token, KeyError(f"{token} not in vocab"))
 
     # trys to encode then decode if possible
-    def __call__(self, data, model=False):
+    def __call__(self, data, model=False, special_tokens=False):
         try: return self.encode(data, model=model)
         except: 
-            try: return self.decode(data)
+            try: return self.decode(data, special_tokens=special_tokens)
             except:
                 raise ValueError(f"Can't interpret input {data}")
 

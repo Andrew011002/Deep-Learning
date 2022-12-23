@@ -161,10 +161,11 @@ must match the data type of labels ({type(labels[0])})")
 
 class Checkpoint:
 
-    def __init__(self, model, optimizer, scheduler, epochs, path, overwrite=False, verbose=True):
+    def __init__(self, model, optimizer, scheduler=None, evaluator=None, epochs=5, path=None, overwrite=False, verbose=True):
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
+        self.evaluator = evaluator
         self.epochs = epochs
         self.path = path
         self.overwrite = overwrite
@@ -180,6 +181,9 @@ class Checkpoint:
             self.save()
 
     def save(self):
+        # give name
+        if self.path is None:
+            self.path = "checkpoint"
         # create path if not existent 
         if not os.path.exists(self.path):
             os.makedirs(self.path)
@@ -192,13 +196,19 @@ class Checkpoint:
 
         # save params of
         torch.save({
+            # required
             "model_params": self.model.state_dict(),
             "optimizer_params": self.optimizer.state_dict(),
-            "scheduler_params": self.scheduler.state_dict(),
             "epoch": self.epoch,
             "epochs": self.epochs,
-            "loss": self.loss
+            "loss": self.loss,
+            # optional
+            "scheduler_params": self.scheduler.state_dict() if self.scheduler \
+                else None,
+            "evaluator": self.evaluator if self.evaluator \
+                else None
         }, path)
+        # display info
         if self.verbose:
             print(f"Checkpoint saved")
             
@@ -206,13 +216,18 @@ class Checkpoint:
         # load checkpoint
         path = f"{self.path}{tag}.pt"
         checkpoint = torch.load(path, map_location=device) 
-        # overwrite current state of checkpoint
+        # overwrite current state of checkpoint (required)
         self.model.load_state_dict(checkpoint["model_params"])
         self.optimizer.load_state_dict(checkpoint["optimizer_params"])
-        self.scheduler.load_state_dict(checkpoint["scheduler_params"])
         self.epoch = checkpoint["epoch"]
         self.epochs = checkpoint["epochs"]
         self.loss = checkpoint["loss"]
+        # overwrite current state of checkpoint (optional)
+        if checkpoint["scheduler_params"]:
+            self.scheduler.load_state_dict(checkpoint["scheduler_params"])
+        if checkpoint["evaluator"]:
+            self.evaluator = checkpoint["evaluator"]
+        # display info
         if self.verbose:
             print(f"Checkpoint loaded")
     
@@ -220,6 +235,7 @@ class Checkpoint:
         return {"model": self.model,
                 "optimizer": self.optimizer,
                 "scheduler": self.scheduler,
+                "evaluator": self.evaluator,
                 "epoch": self.epoch,
                 "loss": self.loss}
 
