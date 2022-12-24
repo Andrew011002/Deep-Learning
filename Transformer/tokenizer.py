@@ -1,6 +1,7 @@
 
 from tokenizers import decoders, models, normalizers, pre_tokenizers,\
 processors, trainers, Tokenizer
+from utils import create_path
 
 def basic_tokenizer(vocab, prefix, special_tokens):
     # build tokenizer
@@ -99,6 +100,9 @@ class BaseTokenizer:
     def set_tokenizer(self, tokenizer):
         self.tokenizer = tokenizer
 
+    def get_special_tokens(self):
+        return self.kwargs["special_tokens"]
+
     # total vocabulary
     def __len__(self):
         return self.tokenizer.get_vocab_size()
@@ -129,7 +133,10 @@ class Nerdimizer(BaseTokenizer):
 # saves tokenizer as json
 def save_tokenizer(tokenizer, path=None):
     # default
-    path = "" if path is None else path
+    path = "tokenizer" if path is None else path
+
+    # create path if non-existant
+    create_path(path)
 
     # save tokenizer to path
     tokenizer.tokenizer.save(f"{path}.json")
@@ -138,7 +145,7 @@ def save_tokenizer(tokenizer, path=None):
 # loads saved tokenizer
 def load_tokenizer(path=None):
     # default
-    path = "" if path is None else path
+    path = "tokenizer" if path is None else path
 
     # set tokenizer for base tokenizer from path
     tokenizer = BaseTokenizer()

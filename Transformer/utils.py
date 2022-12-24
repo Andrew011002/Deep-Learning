@@ -83,28 +83,19 @@ must match the data type of labels ({type(labels[0])})")
 
     # returns the entire dataset as a corpus
     def corpus(self):
-        # combine correct type object
-        if isinstance(self.inputs, np.ndarray):
-            return np.append(self.inputs, self.labels)
-        elif isinstance(self.inputs, torch.Tensor):
-            return torch.cat((self.inputs, self.labels), dim=0)
-        return self.inputs + self.labels
+        # combine inputs and labels
+        inputs, labels = self.list()
+        return inputs + labels
 
     # returns a sampled batch of specified batch size
     def sample(self, n=1):
         if n > self.size:
             raise ValueError(f"Cannot sample batch larger than size ({self.size})")
         # get random slices
-        indices = np.random.choice(len(self), (n, ), replace=False)
-        inputs, labels = self.numpy()
-        input_samples, label_samples = inputs[indices], labels[indices]
-        
-        # return correct list object
-        if isinstance(self.inputs, torch.Tensor):
-            return torch.from_numpy(input_samples), torch.from_numpy(label_samples)
-        elif isinstance(self.inputs, list):
-            return input_samples.tolist(), label_samples.tolist()
-        return input_samples, label_samples
+        indices = np.random.choice(len(self), (n, ), replace=False).astype(int)
+        inputs, labels = self.inputs, self.labels
+        # return as pairs
+        return [(inputs[i], labels[i]) for i in indices]
 
     # returns a dataframe of data
     def dataframe(self, headers=None):
@@ -142,13 +133,13 @@ must match the data type of labels ({type(labels[0])})")
         return int(np.rint(max(m, n)) * factor)
     
     # gives back maxlen between tokenized sequences
-    def maxlen(self, tokenizer):
+    def maxlen(self, tokenizer, factor=1):
         inputs, labels = self.list()
         # find max longest sequence in inputs & labels
         max_inputs = len(max(tokenizer(inputs), key=len))
         max_labels = len(max(tokenizer(labels), key=len))
         # give back greatest of the two
-        return max(max_inputs, max_labels)
+        return int(np.rint(max(max_inputs, max_labels) * factor))
 
     def dataloader(self, batch_size=32, shuffle=False, drop_last=True, **dataloader_kwargs):
         # create tensors
@@ -185,8 +176,8 @@ class Checkpoint:
         if self.path is None:
             self.path = "checkpoint"
         # create path if not existent 
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
+        create_path(self.path)
+
         # save same path
         if self.overwrite:
             path = f"{self.path}.pt"
@@ -202,6 +193,8 @@ class Checkpoint:
             "epoch": self.epoch,
             "epochs": self.epochs,
             "loss": self.loss,
+            "path": self.path,
+            "overwrite": self.overwrite,
             # optional
             "scheduler_params": self.scheduler.state_dict() if self.scheduler \
                 else None,
@@ -212,9 +205,11 @@ class Checkpoint:
         if self.verbose:
             print(f"Checkpoint saved")
             
-    def load_checkpoint(self, tag="", device=None): 
+    def load_checkpoint(self, path=None, device=None): 
+        if path is None:
+            path = "checkpoint"
         # load checkpoint
-        path = f"{self.path}{tag}.pt"
+        path = f"{path}.pt"
         checkpoint = torch.load(path, map_location=device) 
         # overwrite current state of checkpoint (required)
         self.model.load_state_dict(checkpoint["model_params"])
@@ -222,11 +217,14 @@ class Checkpoint:
         self.epoch = checkpoint["epoch"]
         self.epochs = checkpoint["epochs"]
         self.loss = checkpoint["loss"]
+        self.path = checkpoint["path"]
+        self.overwrite = checkpoint["overwrite"]
         # overwrite current state of checkpoint (optional)
-        if checkpoint["scheduler_params"]:
+        if checkpoint["scheduler_params"] and self.scheduler:
             self.scheduler.load_state_dict(checkpoint["scheduler_params"])
-        if checkpoint["evaluator"]:
+        if checkpoint["evaluator"] and self.evaluator:
             self.evaluator = checkpoint["evaluator"]
+    
         # display info
         if self.verbose:
             print(f"Checkpoint loaded")
@@ -242,11 +240,11 @@ class Checkpoint:
 # saves the model to a path
 def save_model(model, path=None):
     # default
-    path = "" if path is None else path
+    path = "model" if path is None else path
 
     # create path if non-existant
-    if path and not os.path.exists(path):
-        os.makedirs(path)
+    create_path(path)
+    
     # save model to the path
     torch.save(model.state_dict(), f"{path}.pth")
     print(f"Model params saved")
@@ -254,7 +252,7 @@ def save_model(model, path=None):
 # loads a model params from a path
 def load_model(model, path=None, device=None):
     # default
-    path = "" if path is None else path
+    path = "model" if path is None else path
 
     # load parameters into model
     params = torch.load(f"{path}.pth", map_location=device)
@@ -262,8 +260,13 @@ def load_model(model, path=None, device=None):
         model.load_state_dict(params)
     print(f"Model params loaded")
     return model
+
+def create_path(path):
+    path = path.split("/")
+    path = "/".join(path[:-1]) + "/"
+    if path and not os.path.exists(path):
+        os.makedirs(path)
     
 if __name__ == "__main__":
     pass
-
     

@@ -3,8 +3,8 @@ import torch.nn as nn
 import numpy as np
 from utils import generate_masks
 
-def train(dataloader, model, optimizer, scheduler=None, checkpoint=None, 
-        evaluator=None, epochs=1000, warmups=100, verbose=True, device=None):
+def train(dataloader, model, optimizer, scheduler=None, evaluator=None, 
+    checkpoint=None, epochs=1000, warmups=100, verbose=True, device=None):
 
     if verbose:
         print("Training Started")
@@ -61,10 +61,11 @@ def train(dataloader, model, optimizer, scheduler=None, checkpoint=None,
             print(f"Epoch {epoch + 1} Complete | Epoch Loss: {accum_loss / m:.4f}")
         # evaluate model
         if evaluator:
-            evaluator.evaluate(model, verbose)
+            evaluator.evaluate(model)
             # model meets bleu score (end training)
             if evaluator.done():
                 break
+            model.train() # reset back
 
     net_loss /= epochs # avg accum loss over epochs
     # display info after end of training
@@ -135,10 +136,11 @@ def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, devi
             print(f"Epoch {epoch + 1} Complete | Epoch Loss: {accum_loss / m:.4f}")
         # evaluate model
         if evaluator:
-            evaluator.evaluate(model, verbose)
+            evaluator.evaluate(model)
             # model meets bleu score (end training)
             if evaluator.done():
                 break
+            model.train() # reset back
 
     net_loss /= epochs # avg accum loss over epochs
     # display info after end of training
@@ -161,7 +163,7 @@ def predict(sequences, model, tokenizer, start, end, maxlen, special_tokens=Fals
 
         # create src tensor
         ids = np.array(ids, dtype=int)
-        src = torch.from_numpy(ids).unsqueeze(0).long() # (unknown, src_len)
+        src = torch.from_numpy(ids).unsqueeze(0).long() # (1, src_len)
         src_mask = (src != model.pad_id).unsqueeze(-2)
 
         # create tgt tensor
@@ -180,9 +182,9 @@ def predict(sequences, model, tokenizer, start, end, maxlen, special_tokens=Fals
             prob = softmax(out)
 
             # get last token(s) of highest probability
-            pred = torch.argmax(prob, dim=-1)[:, -1] # shape: (batch_size, 1)
+            pred = torch.argmax(prob, dim=-1)[:, -1] # shape: (1, 1)
             pred = pred.contiguous().view(-1, 1)
-            # add token to current tgt (batch_size, output_size + 1)
+            # add token to current tgt (1, output_size + 1)
             tgt = torch.cat((tgt, pred), dim=-1)
 
             # done prediction
