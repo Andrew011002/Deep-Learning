@@ -39,9 +39,10 @@ def get_split(datadict, input_key, label_key, size=100000):
     count = 0
     # add sequence pairs while the desired size isn't reached
     for pair in datadict["translation"]:
-        inputs.append(pair[input_key])
-        labels.append(pair[label_key])
-        count += 1
+        if pair[input_key] != pair[label_key]:
+            inputs.append(pair[input_key])
+            labels.append(pair[label_key])
+            count += 1
         # size reached
         if count == size:
             break
@@ -261,6 +262,7 @@ def load_model(model, path=None, device=None):
     print(f"Model params loaded")
     return model
 
+# creates a path if it doesn't exist
 def create_path(path):
     path = path.split("/")
     path = "/".join(path[:-1]) + "/"

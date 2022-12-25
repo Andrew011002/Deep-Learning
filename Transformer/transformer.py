@@ -35,7 +35,7 @@ class Transformer(nn.Module):
         # decode embeddings shape: (batch_size, seq_len, dm)
         d_out, attn1, attn2 = self.decoder(e_out, x, src_mask=src_mask, tgt_mask=tgt_mask)
 
-        # umbedding wieth embedding weight matrix
+        # umbedding with embedding weight matrix
         out = torch.matmul(d_out, self.wu.T)
         return out
         
