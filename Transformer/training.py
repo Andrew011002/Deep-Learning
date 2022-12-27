@@ -221,7 +221,6 @@ def prompt(model, tokenizer, start, end, device=None):
         out = model(src, tgt, src_mask=None, tgt_mask=None)
         # get probability distribution
         prob = softmax(out)
-        print(prob)
 
         # get token with highest probability
         pred = torch.argmax(prob, dim=-1)[:, -1]
