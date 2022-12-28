@@ -1,4 +1,5 @@
 import os
+import time
 import torch
 import numpy as np
 import pandas as pd
@@ -238,6 +239,45 @@ class Checkpoint:
                 "epoch": self.epoch,
                 "loss": self.loss}
 
+class Clock:
+
+    def __init__(self) -> None:
+        self.duration = 0
+        self.current = None
+
+    def start(self):
+        self.current = time.time()
+
+    def clock(self, start, end):
+        elapsed = end - start
+        self.current = end
+        self.duration += elapsed
+        return self.to_hour_min_sec(elapsed)
+    
+    def epoch(self):
+        now = time.time()
+        h, m, s = self.clock(self.current, now)
+        return self.asstr(h, m, s)
+
+    def elapsed(self):
+        elapsed = self.duration
+        h, m, s = self.to_hour_min_sec(elapsed)
+        return self.asstr(h, m, s)
+        
+    def reset(self):
+        self.__init__()
+
+    def to_hour_min_sec(self, elapsed):
+        hours, rem = elapsed // 3600, elapsed % 3600
+        minutes, seconds = rem // 60, rem % 60
+        return hours, minutes, seconds
+    
+    def asstr(self, hours, minutes, seconds):
+        hstr = f"0{hours:.0f}" if hours < 10 else f"{hours:.0f}"
+        mstr = f"0{minutes:.0f}" if minutes < 10 else f"{minutes:.0f}"
+        sstr = f"0{seconds:.0f}" if seconds < 10 else f"{seconds:.0f}"
+        return f"{hstr}:{mstr}:{sstr}"
+
 # saves the model to a path
 def save_model(model, path=None):
     # default
@@ -270,5 +310,15 @@ def create_path(path):
         os.makedirs(path)
     
 if __name__ == "__main__":
-    pass
+    clock = Clock()
+    clock.start()
+    time.sleep(5)
+    print(clock.epoch())
+    time.sleep(10)
+    print(clock.epoch())
+    time.sleep(5)
+    print(clock.elapsed())
+
+    
+    
     

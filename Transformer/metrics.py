@@ -44,7 +44,7 @@ class Evaluator:
         self.bleu = max(net_bleu / self.sample, bleu)
         # display information
         if self.verbose:
-            print(f"BLEU: {self.bleu:.2f}")
+            print(f"Evaluator Metric | BLEU: {self.bleu:.2f}")
 
     def done(self):
         return self.bleu >= self.threshold

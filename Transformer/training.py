@@ -4,14 +4,17 @@ import numpy as np
 from utils import generate_masks
 
 def train(dataloader, model, optimizer, scheduler=None, evaluator=None, 
-    checkpoint=None, epochs=1000, warmups=100, verbose=True, device=None):
+    checkpoint=None, clock=None, epochs=1000, warmups=100, verbose=True, device=None):
 
+    # setup
     if verbose:
         print("Training Started")
     loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
     model.train()
     m = len(dataloader)
     net_loss = 0
+    if clock:
+        clock.start()
 
     for epoch in range(epochs):
         
@@ -59,13 +62,16 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
         # display info after end of epoch
         if verbose:
             print(f"Epoch {epoch + 1} Complete | Epoch Loss: {accum_loss / m:.4f}")
-        # evaluate model
+        # evaluate mode
         if evaluator:
             evaluator.evaluate(model)
             # model meets bleu score (end training)
             if evaluator.done():
                 break
             model.train() # reset back
+        # show times 
+        if clock:
+            print(f"Epoch Duration: {clock.epoch()[3:]} | Elapsed Time: {clock.elapsed()}")
 
     net_loss /= epochs # avg accum loss over epochs
     # display info after end of training
