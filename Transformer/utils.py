@@ -169,7 +169,7 @@ class Checkpoint:
         # save current model state
         self.loss = loss
         self.epoch += 1 # update steps taken
-        if (self.epoch) % self.epochs == 0:
+        if self.epoch % self.epochs == 0:
             self.save()
 
     def save(self):
