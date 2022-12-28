@@ -21,9 +21,9 @@ class PositionalEncoder(nn.Module):
         self.register_buffer("pos_encodings", encodings)
 
     def forward(self, embeddings):
-        # embeddings shape: (batch_size?, seq_len, dm)
+        # embeddings shape: (batch_size, seq_len, dm)
 
-        # sum up encodings up to seq_len shape: (batch_size, seq_len, dm)
+        # sum up encodings up to seq_len shape w/ embeddings: (batch_size, seq_len, dm)
         seq_len = embeddings.size(1)
         embeddings = embeddings + self.pos_encodings[:, :seq_len]
         return self.dropout(embeddings)

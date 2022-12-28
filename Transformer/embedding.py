@@ -5,9 +5,9 @@ import numpy as np
 
 class Embeddings(nn.Module):
 
-    def __init__(self, n_tokens, dm, pad_idx, **kwargs) -> None:
+    def __init__(self, n_tokens, dm, pad_id, **kwargs) -> None:
         super().__init__()
-        self.embedding = nn.Embedding(n_tokens, dm, pad_idx, **kwargs)
+        self.embedding = nn.Embedding(n_tokens, dm, pad_id, **kwargs)
 
     def forward(self, x):
         # inshape: (batch_size, seq_len)
