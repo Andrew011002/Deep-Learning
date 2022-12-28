@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-from embedding import Embeddings
-from pos_encoder import PositionalEncoder
 from layers import Encoder, Decoder
 
 class Transformer(nn.Module):
@@ -9,34 +7,25 @@ class Transformer(nn.Module):
     def __init__(self, vocab_size, maxlen, pad_id, dm=512, nhead=8, layers=6, 
                     dff=2048, bias=False, dropout=0.1, eps=1e-5) -> None:
         super().__init__()
-        self.embeddings = Embeddings(vocab_size, dm, pad_id)
-        self.pos_encoder = PositionalEncoder(dm, maxlen, dropout)
-        self.encoder = Encoder(dm, nhead, dff, layers, bias, dropout, eps)          
-        self.decoder = Decoder(dm, nhead, dff, layers, bias, dropout, eps)
-        self.wu = self.embeddings.unembedding()
-        self.softmax = nn.Softmax(dim=-1)
+        self.encoder = Encoder(vocab_size, maxlen, pad_id, \
+                dm, nhead, dff, layers, bias, dropout, eps)          
+        self.decoder = Decoder(vocab_size, maxlen, pad_id, \
+                dm, nhead, dff, layers, bias, dropout, eps)
+        self.linear = self.decoder.embeddings.unembedding()
         self.pad_id = pad_id
         self.xavier_init()
 
     def forward(self, src, tgt, src_mask=None, tgt_mask=None):
         # inshape: (batch_size, seq_len)
 
-        # embeddings + positional encodings shape: (batch_size, seq_len, dm)
-        x = self.embeddings(src)
-        x = self.pos_encoder(x)
+        # encode embeddings shape: e_out (batch_size, seq_len, dm)
+        e_out, attn = self.encoder(src, src_mask=src_mask)
 
-        # encode embeddings shape: (batch_size, seq_len, dm)
-        e_out, attn = self.encoder(x, src_mask=src_mask)
+        # decode embeddings shape: d_out (batch_size, seq_len, dm)
+        d_out, attn1, attn2 = self.decoder(e_out, tgt, src_mask=src_mask, tgt_mask=tgt_mask)
 
-        # embeddings + positional encodings shape: (batch_size, seq_len, dm)
-        x = self.embeddings(tgt)        
-        x = self.pos_encoder(x)
-
-        # decode embeddings shape: (batch_size, seq_len, dm)
-        d_out, attn1, attn2 = self.decoder(e_out, x, src_mask=src_mask, tgt_mask=tgt_mask)
-
-        # umbedding with embedding weight matrix
-        out = torch.matmul(d_out, self.wu.T)
+        # linear project using unembedding from decoder on decoder output: out (batch_size, seq_len, vocab_size)
+        out = torch.matmul(d_out, self.linear.T)
         return out
         
     def xavier_init(self):
