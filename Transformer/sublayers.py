@@ -7,13 +7,13 @@ class ScaledDotProductAttention(nn.Module):
 
     def __init__(self, dk) -> None:
         super().__init__()
-        self.norm = 1 / np.sqrt(dk) # torch.sqrt(torch.Tensor([dk])) 
+        self.norm = 1 / np.sqrt(dk) 
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, q, k, v, mask=None):
-        # inputs are projected shape = q: (batch_size, q_len, dk) k & v : (batch_size, k_len, dk)
+        # inputs are projected shape: q (batch_size, q_len, dk) k & v (batch_size, k_len, dk)
 
-        # compute dot product between then apply normalize q & k shape: (batch_size, q_len, k_len)
+        # compute dot prod w/ q & k then normalize shape: similarities (batch_size, q_len, k_len)
         similarities = torch.matmul(q, k.transpose(-2, -1)) * self.norm
 
         # apply mask (if required)
@@ -24,7 +24,7 @@ class ScaledDotProductAttention(nn.Module):
         # compute attention weights
         attention = self.softmax(similarities)
 
-        # compute context
+        # compute context given v
         context = torch.matmul(attention, v)
         return context, attention
 
@@ -34,7 +34,7 @@ class MultiHeadAttention(nn.Module):
         super().__init__()
 
         if dm % nhead != 0:
-            raise ValueError("Embedding dimensions (dm) must be divisble by number of heads (nheads.")
+            raise ValueError("Embedding dimensions (dm) must be divisble by number of heads (nheads)")
         
         self.dm = dm
         self.dk = dm // nhead
@@ -50,18 +50,18 @@ class MultiHeadAttention(nn.Module):
         # inshape: q = (batch_size, q_len, dm) k & v = (batch_size, k_len, dm)
         batch_size = q.size(0)
 
-        # linear projections into heads shape: q = (batch_size, nheads, q_len, dk) k & v = (batch_size, nheads, k_len, dk)
+        # linear projections into heads shape: q (batch_size, nheads, q_len, dk) k & v (batch_size, nheads, k_len, dk)
         q = self.wq(q).view(batch_size, -1, self.nhead, self.dk).transpose(1, 2)
         k = self.wk(k).view(batch_size, -1, self.nhead, self.dk).transpose(1, 2)
         v = self.wv(v).view(batch_size, -1, self.nhead, self.dk).transpose(1, 2)
 
-        # att scores & weights shape: attention = (batch_size, nhead, q_len, k_len) values = (batch_size, nhead, q_len, dk)
+        # attn scores & weights shape: attention (batch_size, nhead, q_len, k_len) values (batch_size, nhead, q_len, dk)
         context, attention = self.scaled_dot_prod_attn(q, k, v, mask=mask)
 
-        # concat shape: attention (batch_size, nheads, q_len, k_len) context = (batch_size, q_len, dm)
+        # concat shape: attention (batch_size, nheads, q_len, k_len) context (batch_size, q_len, dm)
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.dm)
 
-        # project and dropout shape: context = (batch_size, q_len, dm)
+        # project & drop neurons shape: context (batch_size, q_len, dm)
         context = self.wo(context)
         context = self.dropout(context)
         return context, attention

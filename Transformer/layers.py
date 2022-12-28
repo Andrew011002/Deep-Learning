@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
+from embedding import Embeddings
 from sublayers import MultiHeadAttention, Norm, FeedForwardNetwork
+from pos_encoder import PositionalEncoder
 
 
 class EncoderLayer(nn.Module):
@@ -13,7 +15,7 @@ class EncoderLayer(nn.Module):
         self.feedforward = FeedForwardNetwork(dm, dff, dropout)
 
     def forward(self, src, src_mask=None):
-        # inshape: (batch_size, seq_len, dm)
+        # inshape: src (batch_size, seq_len, dm)
 
         # calc context & attn then add & norm (residual connections) shape: (batch_size, seq_len, dm)
         x = src
@@ -27,15 +29,21 @@ class EncoderLayer(nn.Module):
 
 class Encoder(nn.Module):
 
-    def __init__(self, dm, nhead, dff, layers=6, bias=False, dropout=0.1, eps=1e-5) -> None:
+    def __init__(self, vocab_size, maxlen, pad_id, dm, nhead, dff,
+                    layers=6, bias=False, dropout=0.1, eps=1e-5) -> None:
         super().__init__()
         self.stack = nn.ModuleList([EncoderLayer(dm, nhead, dff, bias, dropout, eps) \
             for l in range(layers)])
+        self.embeddings = Embeddings(vocab_size, dm, pad_id=pad_id)
+        self.pos_encodings = PositionalEncoder(dm, maxlen, dropout=dropout)
 
     def forward(self, src, src_mask=None):
-        # inshape src: (batch_size, seq_len, d_model)
-        x = src
-        # pass src & through stack of encoders (out of layer is in for next)
+        # inshape: src (batch_size, seq_len, d_model)
+
+        # embeddings + positional encodings shape: (batch_size, seq_len, dm)
+        x = self.embeddings(src)
+        x = self.pos_encodings(x)
+        # pass src through stack of encoders (out of layer is in for next)
         for encoder in self.stack:
             x, attn = encoder(x, src_mask=src_mask)
         out = x
@@ -71,14 +79,21 @@ class DecoderLayer(nn.Module):
     
 class Decoder(nn.Module):
 
-    def __init__(self, dm, nhead, dff, layers=6, bias=False, dropout=0.1, eps=1e-5) -> None:
+    def __init__(self, vocab_size, maxlen, pad_id, dm, nhead, dff, 
+                    layers=6, bias=False, dropout=0.1, eps=1e-5) -> None:
         super().__init__()
         self.stack = nn.ModuleList([DecoderLayer(dm, nhead, dff, bias, dropout, eps) \
             for l in range(layers)])
+        self.embeddings = Embeddings(vocab_size, dm, pad_id=pad_id)
+        self.pos_encodings = PositionalEncoder(dm, maxlen, dropout=dropout)
 
     def forward(self, src, tgt, src_mask=None, tgt_mask=None):
         # inshape src: (batch_size, seq_len, d_model) tgt: (batch_size, tgt_len, d_model)
-        x = tgt
+
+        # embeddings + positional encodings shape: (batch_size, seq_len, dm)
+        x = self.embeddings(tgt)
+        x = self.pos_encodings(x)
+        
         # pass src & tgt through stack of decoders (out of layer is in for next)
         for decoder in self.stack:
             x, attn1, attn2 = decoder(src, x, src_mask=src_mask, tgt_mask=tgt_mask)
