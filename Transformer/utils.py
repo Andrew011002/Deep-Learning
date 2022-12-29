@@ -174,6 +174,8 @@ class Checkpoint:
         self.epoch += 1 # update steps taken
         if self.epoch % self.epochs == 0:
             self.save()
+            return True
+        return False
 
     def save(self):
         # give name
@@ -330,13 +332,7 @@ def create_path(path):
         os.makedirs(path)
     
 if __name__ == "__main__":
-    clock = Clock(5793)
-    clock.start()
-    time.sleep(2)
-    print(clock.epoch())
-    time.sleep(2)
-    print(clock.epoch())
-    print(clock.elapsed())
+    pass
 
     
     

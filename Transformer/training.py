@@ -7,27 +7,25 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
     checkpoint=None, clock=None, epochs=1000, warmups=100, verbose=True, device=None):
 
     # setup
-    if verbose:
-        print("Training Started")
     loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
-    model.train()
     m = len(dataloader)
     net_loss = curr_bleu = bleu = 0
-    done = False
+    saved = done = False
+    model.train()
     if clock:
         clock.start()
+    if verbose:
+        print("Training Started")
 
+    # train over epochs
     for epoch in range(epochs):
-        
-        # reset accumulative loss and display current epoch
-        if verbose:
-            print(f"Epoch {epoch + 1} Started")
-        accum_loss = 0
+
+        accum_loss = 0 # reset accumulative loss
 
         for i, data in enumerate(dataloader):
-            # get source and targets
+            # get src and tgt
             inputs, labels = data
-            src, tgt, out = inputs, labels[:, :-1], labels[:, 1:] # shape src: (batch_size, srclen) tgt & out: (batch_size, outlen)
+            src, tgt, out = inputs, labels[:, :-1], labels[:, 1:] # shape: src (batch_size, src_len) tgt & out (batch_size, out_len)
             src, tgt, out = src.long(), tgt.long(), out.long()
             # generate the mask
             src_mask, tgt_mask = generate_masks(src, tgt, model.pad_id)
@@ -41,7 +39,7 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
             # get prediction and reshape outputs
             pred = model(src, tgt, src_mask=src_mask, tgt_mask=tgt_mask) # shape: (batch_size, seq_len, vocab_size)
             pred, out = pred.view(-1, pred.size(-1)), out.contiguous().view(-1) # shape pred: (batch_size * seq_len, vocab_size) out: (batch_size * seq_len)
-            # calculate loss and backpropagate
+            # calculate loss and back-propagate
             loss = loss_fn(pred, out)
             loss.backward()
             optimizer.step()
@@ -52,21 +50,22 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
         epoch_loss = accum_loss / m
         net_loss += epoch_loss
         # apply scheduler after warmups
+        warmup = epoch + 1 < warmups if scheduler else None
         if epoch + 1 > warmups and scheduler:
             scheduler.step(epoch_loss) 
         # check on checkpoint
         if checkpoint:
-            checkpoint.check(epoch_loss)
-        # evaluate mode
+            saved = checkpoint.check(epoch_loss)
+        # evaluate model
         if evaluator:
             curr_bleu = evaluator.evaluate(model)
             done = evaluator.done()
             model.train() # reset back
-            bleu = max(bleu, curr_bleu)
+            bleu = evaluator.bleu
 
         # display info after end of epoch
         if verbose:
-            train_printer(epoch_loss, epoch + 1, clock, curr_bleu)
+            train_printer(epoch_loss, epoch + 1, clock, curr_bleu, warmup, saved)
         # model meets bleu score
         if done:
             break
@@ -74,7 +73,7 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
     net_loss /= epochs # avg accum loss over epochs
     # display info after end of training
     if verbose:
-        train_printer(net_loss, None, clock, bleu)
+        train_printer(net_loss, None, clock, bleu, None, saved)
     return net_loss
 
 def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
@@ -85,32 +84,31 @@ def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, devi
     optimizer = info["optimizer"]
     scheduler = info["scheduler"]
     evaluator = info["evaluator"]
+    clock = info["clock"]
     epoch = info["epoch"]
     net_loss = info["loss"]
     bleu = info["bleu"]
-    curr_bleu = 0
-    clock = info["clock"]
-    loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
-    model.train()
-    m = len(dataloader)
-    done = False
 
-    if verbose:
-        print("Training continued")
+     # setup
+    loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
+    m = len(dataloader)
+    curr_bleu = 0
+    saved = done = False
+    model.train()
     if clock:
         clock.start()
+    if verbose:
+        print("Training Resumed")
 
-    for epoch in range(epoch, epochs):
-        
-        # reset accumulative loss and display current epoch
-        if verbose:
-            print(f"Epoch {epoch + 1} Started")
-        accum_loss = 0
+    # train over epochs
+    for epoch in range(epochs):
+
+        accum_loss = 0 # reset accumulative loss
 
         for i, data in enumerate(dataloader):
-            # get source and targets
+            # get src and tgt
             inputs, labels = data
-            src, tgt, out = inputs, labels[:, :-1], labels[:, 1:] # shape src: (batch_size, srclen) tgt & out: (batch_size, outlen)
+            src, tgt, out = inputs, labels[:, :-1], labels[:, 1:] # shape: src (batch_size, src_len) tgt & out (batch_size, out_len)
             src, tgt, out = src.long(), tgt.long(), out.long()
             # generate the mask
             src_mask, tgt_mask = generate_masks(src, tgt, model.pad_id)
@@ -124,7 +122,7 @@ def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, devi
             # get prediction and reshape outputs
             pred = model(src, tgt, src_mask=src_mask, tgt_mask=tgt_mask) # shape: (batch_size, seq_len, vocab_size)
             pred, out = pred.view(-1, pred.size(-1)), out.contiguous().view(-1) # shape pred: (batch_size * seq_len, vocab_size) out: (batch_size * seq_len)
-            # calculate loss and backpropagate
+            # calculate loss and back-propagate
             loss = loss_fn(pred, out)
             loss.backward()
             optimizer.step()
@@ -135,21 +133,22 @@ def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, devi
         epoch_loss = accum_loss / m
         net_loss += epoch_loss
         # apply scheduler after warmups
+        warmup = epoch + 1 < warmups if scheduler else None
         if epoch + 1 > warmups and scheduler:
             scheduler.step(epoch_loss) 
         # check on checkpoint
         if checkpoint:
-            checkpoint.check(epoch_loss)
-        # evaluate mode
+            saved = checkpoint.check(epoch_loss)
+        # evaluate model
         if evaluator:
             curr_bleu = evaluator.evaluate(model)
             done = evaluator.done()
             model.train() # reset back
-            bleu = max(curr_bleu, bleu)
+            bleu = evaluator.bleu
 
         # display info after end of epoch
         if verbose:
-            train_printer(epoch_loss, epoch + 1, clock, curr_bleu)
+            train_printer(epoch_loss, epoch + 1, clock, curr_bleu, warmup, saved)
         # model meets bleu score
         if done:
             break
@@ -157,21 +156,33 @@ def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, devi
     net_loss /= epochs # avg accum loss over epochs
     # display info after end of training
     if verbose:
-        train_printer(net_loss, None, clock, bleu)
+        train_printer(net_loss, None, clock, bleu, None, saved)
     return net_loss
 
-def train_printer(loss, epoch=None, clock=None, bleu=None):
+def train_printer(loss, epoch=None, clock=None, bleu=None, warmup=None, saved=None):
     # basic info
-    info = f"Epoch {epoch} Complete" if not epoch else "Training Complete"
+    info = f"Epoch {epoch} Complete | " if epoch else "Training Complete | "
     # time info
     if clock:
-        info += f" | Epoch Duration: {clock.epoch()}" if not epoch else ""
-        info += f" | Elapsed Time: {clock.elapsed()}"
-    # metrics
+        info += f"Epoch Duration: {clock.epoch()} | " if epoch else ""
+        info += f"Elapsed Time: {clock.elapsed()} |"
     info += "\n"
-    info += f"Metrics | Epoch Loss: {loss:.4f}" if not epoch else f"Metrics | Training Loss: {loss:.4f}"
+    # metrics
+    info += f"Metrics | Epoch Loss: {loss:.4f} | " if epoch else f"Metrics | Training Loss: {loss:.4f} | "
     if bleu:
-        info += f" | BLEU Score: {bleu:.1f}" if not epoch else f" | Best BLEU: {bleu:.1f}"
+        info += f"BLEU Score: {bleu:.1f} | " if epoch else f"Best BLEU: {bleu:.1f} | "
+    info += "\n"
+    info += "Other Info | "
+    # other info
+    if warmup is not None or saved is not None:
+        # warmup step
+        info += f"Scheduler Warmup Step: {warmup} | " if warmup is not None else ""
+        # checkpoint
+        info += f"Checkpoint Saved: {saved} |" if saved is not None else ""
+    # no other info
+    else:
+        info += "NA |"
+    
     print(info)
 
 def predict(sequences, model, tokenizer, start, end, maxlen, special_tokens=False, device=None):
@@ -269,8 +280,7 @@ if __name__ == "__main__":
     epoch = 5
     loss = 0.30940429842
     bleu = 25.4
-    time.sleep(5)
-    train_printer(epoch, loss, clock, bleu)
+    train_printer(loss, epoch, clock, bleu, warmup=True, saved=True)
 
     
 
