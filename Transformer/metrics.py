@@ -5,7 +5,7 @@ from collections import Counter
 class Evaluator:
 
     def __init__(self, dataset, tokenizer, start, end, maxlen, 
-        sample=32, ngrams=4, threshold=30, mode="geometric", verbose=True, device=None):
+        sample=32, ngrams=4, threshold=30, mode="geometric", device=None):
         if sample > len(dataset):
             raise ValueError(f"Sample size cannot exceed {len(dataset)}")
         self.dataset = dataset
@@ -17,7 +17,6 @@ class Evaluator:
         self.ngrams = ngrams
         self.threshold = threshold
         self.mode = mode
-        self.verbose = verbose
         self.device = device
         self.bleu = 0
         self.passed = True
@@ -42,9 +41,7 @@ class Evaluator:
             net_bleu += calc_ngrams_score(pred, ref, mode, ngrams)["bleu"]
         # set best bleu score calculated
         self.bleu = max(net_bleu / self.sample, bleu)
-        # display information
-        if self.verbose:
-            print(f"Evaluator Metric | BLEU: {self.bleu:.2f}")
+        return self.bleu
 
     def done(self):
         return self.bleu >= self.threshold

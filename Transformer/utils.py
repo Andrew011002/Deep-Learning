@@ -154,16 +154,18 @@ must match the data type of labels ({type(labels[0])})")
 
 class Checkpoint:
 
-    def __init__(self, model, optimizer, scheduler=None, evaluator=None, epochs=5, path=None, overwrite=False, verbose=True):
+    def __init__(self, model, optimizer, scheduler=None, evaluator=None, clock=None, epochs=5, path=None, overwrite=False, verbose=True):
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.evaluator = evaluator
+        self.clock = clock
         self.epochs = epochs
         self.path = path
         self.overwrite = overwrite
         self.epoch = 0
         self.loss = None
+        self.bleu = None
         self.verbose = verbose
 
     def check(self, loss):
@@ -201,6 +203,10 @@ class Checkpoint:
             "scheduler_params": self.scheduler.state_dict() if self.scheduler \
                 else None,
             "evaluator": self.evaluator if self.evaluator \
+                else None,
+            "bleu": self.evaluator.bleu if self.evaluator \
+                else None,
+            "duration": self.clock.duration if self.clock \
                 else None
         }, path)
         # display info
@@ -226,6 +232,10 @@ class Checkpoint:
             self.scheduler.load_state_dict(checkpoint["scheduler_params"])
         if checkpoint["evaluator"] and self.evaluator:
             self.evaluator = checkpoint["evaluator"]
+        if checkpoint["bleu"] and self.bleu:
+            self.bleu = checkpoint["bleu"]
+        if checkpoint["duration"] and self.clock:
+            self.clock = Clock(checkpoint["duration"])
     
         # display info
         if self.verbose:
@@ -237,21 +247,30 @@ class Checkpoint:
                 "scheduler": self.scheduler,
                 "evaluator": self.evaluator,
                 "epoch": self.epoch,
-                "loss": self.loss}
+                "loss": self.loss,
+                "bleu": self.bleu,
+                "clock": self.clock
+                }
 
 class Clock:
 
-    def __init__(self) -> None:
-        self.duration = 0
+    def __init__(self, duration=0) -> None:
+        self.duration = duration
+        self.zero = None
         self.current = None
 
     def start(self):
-        self.current = time.time()
+        self.zero = time.time()
+        self.current = self.zero
+
+    def tick(self):
+        now = time.time()
+        elapsed = now - self.zero
+        self.duration += elapsed
 
     def clock(self, start, end):
         elapsed = end - start
         self.current = end
-        self.duration += elapsed
         return self.to_hour_min_sec(elapsed)
     
     def epoch(self):
@@ -260,6 +279,7 @@ class Clock:
         return self.asstr(h, m, s)
 
     def elapsed(self):
+        self.tick()
         elapsed = self.duration
         h, m, s = self.to_hour_min_sec(elapsed)
         return self.asstr(h, m, s)
@@ -310,13 +330,12 @@ def create_path(path):
         os.makedirs(path)
     
 if __name__ == "__main__":
-    clock = Clock()
+    clock = Clock(5793)
     clock.start()
-    time.sleep(5)
+    time.sleep(2)
     print(clock.epoch())
-    time.sleep(10)
+    time.sleep(2)
     print(clock.epoch())
-    time.sleep(5)
     print(clock.elapsed())
 
     

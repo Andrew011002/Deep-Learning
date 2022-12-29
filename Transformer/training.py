@@ -12,7 +12,8 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
     loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
     model.train()
     m = len(dataloader)
-    net_loss = 0
+    net_loss = curr_bleu = bleu = 0
+    done = False
     if clock:
         clock.start()
 
@@ -47,36 +48,33 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
             # tally loss over time
             accum_loss += loss.item()
 
-            # diplay info every fraction of an epoch
-            if verbose:
-                if (i + 1) % int(m * verbose) == 0 and (i + 1) != m:
-                    print(f"Epoch {epoch + 1} {(i + 1) / m * 100:.1f}% Complete | Current Loss: {accum_loss / (i + 1):.4f}")
-
-        net_loss += accum_loss / m
+        # get losses
+        epoch_loss = accum_loss / m
+        net_loss += epoch_loss
         # apply scheduler after warmups
         if epoch + 1 > warmups and scheduler:
-            scheduler.step(accum_loss / m) 
+            scheduler.step(epoch_loss) 
         # check on checkpoint
         if checkpoint:
-            checkpoint.check(accum_loss / m)
-        # display info after end of epoch
-        if verbose:
-            print(f"Epoch {epoch + 1} Complete | Epoch Loss: {accum_loss / m:.4f}")
+            checkpoint.check(epoch_loss)
         # evaluate mode
         if evaluator:
-            evaluator.evaluate(model)
-            # model meets bleu score (end training)
-            if evaluator.done():
-                break
+            curr_bleu = evaluator.evaluate(model)
+            done = evaluator.done()
             model.train() # reset back
-        # show times 
-        if clock:
-            print(f"Epoch Duration: {clock.epoch()[3:]} | Elapsed Time: {clock.elapsed()}")
+            bleu = max(bleu, curr_bleu)
+
+        # display info after end of epoch
+        if verbose:
+            train_printer(epoch_loss, epoch + 1, clock, curr_bleu)
+        # model meets bleu score
+        if done:
+            break
 
     net_loss /= epochs # avg accum loss over epochs
     # display info after end of training
     if verbose:
-        print(f"Training Complete | Training Loss: {net_loss:.4f}")
+        train_printer(net_loss, None, clock, bleu)
     return net_loss
 
 def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
@@ -89,12 +87,18 @@ def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, devi
     evaluator = info["evaluator"]
     epoch = info["epoch"]
     net_loss = info["loss"]
+    bleu = info["bleu"]
+    curr_bleu = 0
+    clock = info["clock"]
     loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
     model.train()
     m = len(dataloader)
+    done = False
 
     if verbose:
         print("Training continued")
+    if clock:
+        clock.start()
 
     for epoch in range(epoch, epochs):
         
@@ -127,32 +131,48 @@ def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, devi
             # tally loss over time
             accum_loss += loss.item()
 
-            # diplay info every fraction of an epoch
-            if verbose:
-                if (i + 1) % int(m * verbose) == 0 and (i + 1) != m:
-                    print(f"Epoch {epoch + 1} {(i + 1) / m * 100:.1f}% Complete | Current Loss: {accum_loss / (i + 1):.4f}")
-
-        net_loss += accum_loss / m
+        # get losses
+        epoch_loss = accum_loss / m
+        net_loss += epoch_loss
         # apply scheduler after warmups
         if epoch + 1 > warmups and scheduler:
-            scheduler.step(accum_loss / m)     
-        checkpoint.check(accum_loss / m)
+            scheduler.step(epoch_loss) 
+        # check on checkpoint
+        if checkpoint:
+            checkpoint.check(epoch_loss)
+        # evaluate mode
+        if evaluator:
+            curr_bleu = evaluator.evaluate(model)
+            done = evaluator.done()
+            model.train() # reset back
+            bleu = max(curr_bleu, bleu)
+
         # display info after end of epoch
         if verbose:
-            print(f"Epoch {epoch + 1} Complete | Epoch Loss: {accum_loss / m:.4f}")
-        # evaluate model
-        if evaluator:
-            evaluator.evaluate(model)
-            # model meets bleu score (end training)
-            if evaluator.done():
-                break
-            model.train() # reset back
+            train_printer(epoch_loss, epoch + 1, clock, curr_bleu)
+        # model meets bleu score
+        if done:
+            break
 
     net_loss /= epochs # avg accum loss over epochs
     # display info after end of training
     if verbose:
-        print(f"Training Complete | Training Loss: {net_loss:.4f}")
+        train_printer(net_loss, None, clock, bleu)
     return net_loss
+
+def train_printer(loss, epoch=None, clock=None, bleu=None):
+    # basic info
+    info = f"Epoch {epoch} Complete" if not epoch else "Training Complete"
+    # time info
+    if clock:
+        info += f" | Epoch Duration: {clock.epoch()}" if not epoch else ""
+        info += f" | Elapsed Time: {clock.elapsed()}"
+    # metrics
+    info += "\n"
+    info += f"Metrics | Epoch Loss: {loss:.4f}" if not epoch else f"Metrics | Training Loss: {loss:.4f}"
+    if bleu:
+        info += f" | BLEU Score: {bleu:.1f}" if not epoch else f" | Best BLEU: {bleu:.1f}"
+    print(info)
 
 def predict(sequences, model, tokenizer, start, end, maxlen, special_tokens=False, device=None):
     # sequence inshape: (batch_size, src_len,)
@@ -243,7 +263,15 @@ def prompt(model, tokenizer, start, end, device=None):
     return f"{sequence} -> {tokenizer.decode(tgt.tolist())[0]}"
 
 if __name__ == "__main__":
-    pass
+    from utils import Clock, time
+    clock = Clock()
+    clock.start()
+    epoch = 5
+    loss = 0.30940429842
+    bleu = 25.4
+    time.sleep(5)
+    train_printer(epoch, loss, clock, bleu)
+
     
 
     
