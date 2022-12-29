@@ -84,9 +84,19 @@ must match the data type of labels ({type(labels[0])})")
         return np.array(self.inputs), np.array(self.labels)
 
     # returns the entire dataset as a corpus
-    def corpus(self):
-        # combine inputs and labels
+    def corpus(self, split=2):
+        if split < 0 or split > 2:
+            raise ValueError(f"Invalid input for split: {split} (0 = inputs, 1 = labels, 2 = both)")
+
+        # return proper split
         inputs, labels = self.list()
+        # inputs only
+        if split == 0:
+            return inputs
+        # labels only
+        if split == 1:
+            return labels
+        # both
         return inputs + labels
 
     # returns a sampled batch of specified batch size
