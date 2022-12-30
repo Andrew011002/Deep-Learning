@@ -169,7 +169,7 @@ def train_printer(loss, epoch=None, clock=None, bleu=None, warmup=None, saved=No
     info += "\n"
     # metrics
     info += f"Metrics | Epoch Loss: {loss:.4f} | " if epoch else f"Metrics | Training Loss: {loss:.4f} | "
-    if bleu:
+    if bleu is not None:
         info += f"BLEU Score: {bleu:.1f} | " if epoch else f"Best BLEU: {bleu:.1f} | "
     info += "\n"
     info += "Other Info | "
@@ -185,12 +185,13 @@ def train_printer(loss, epoch=None, clock=None, bleu=None, warmup=None, saved=No
     
     print(info)
 
-def predict(sequences, model, tokenizer, start, end, maxlen, special_tokens=False, device=None):
+def predict(sequences, model, tokenizer_enc, tokenizer_dec, start, end, maxlen, special_tokens=False, device=None):
     # sequence inshape: (batch_size, src_len,)
 
     # inference
-    tokenizer.inference()
-    token_ids = tokenizer.encode(sequences, model=True)
+    tokenizer_enc.inference()
+    tokenizer_dec.inference()
+    token_ids = tokenizer_enc.encode(sequences, model=True)
     softmax = nn.Softmax(dim=-1)
     model.eval()
 
@@ -231,7 +232,7 @@ def predict(sequences, model, tokenizer, start, end, maxlen, special_tokens=Fals
         predictions.append(tgt.squeeze().tolist())
 
     # create continuations
-    predictions = tokenizer.decode(predictions, special_tokens)
+    predictions = tokenizer_dec.decode(predictions, special_tokens)
     return predictions
 
 def prompt(model, tokenizer, start, end, device=None):

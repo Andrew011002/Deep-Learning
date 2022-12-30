@@ -4,12 +4,13 @@ from collections import Counter
 
 class Evaluator:
 
-    def __init__(self, dataset, tokenizer, start, end, maxlen, 
+    def __init__(self, dataset, tokenizer_in, tokenizer_out, start, end, maxlen, 
         sample=32, ngrams=4, threshold=30, mode="geometric", device=None):
         if sample > len(dataset):
             raise ValueError(f"Sample size cannot exceed {len(dataset)}")
         self.dataset = dataset
-        self.tokenizer = tokenizer
+        self.tokenizer_in = tokenizer_in
+        self.tokenizer_out = tokenizer_out
         self.start = start
         self.end = end
         self.maxlen = maxlen
@@ -22,17 +23,22 @@ class Evaluator:
         self.passed = True
 
     def evaluate(self, model):
-        # get inputs & references
-        tokenizer, start, end, maxlen, ngrams, mode, device, bleu = \
-            self.tokenizer, self.start, self.end, self.maxlen, self.ngrams, \
+        tokenizer_in, tokenizer_out, start, end, maxlen, ngrams, mode, device, bleu = \
+            self.tokenizer_in, self.tokenizer_out, self.start, self.end, self.maxlen, self.ngrams, \
             self.mode, self.device, self.bleu
-        tokenizer.inference() # (doesn't pad or truncate)
+        # (disable padding)
+        tokenizer_in.inference() 
+        tokenizer_in.truncon(maxlen, end=True)
+        tokenizer_out.inference()
+        tokenizer_out.truncon(maxlen, end=True)
+        
+        # get inputs & references
         samples = self.dataset.sample(self.sample)
         inputs = [pair[0] for pair in samples]
         references = [pair[1] for pair in samples]
-        references = tokenizer.encode(references, model=False) # encode tokens
+        references = tokenizer_out.encode(references, model=False) # encode tokens
         # generate prediction
-        predictions = predict(inputs, model, tokenizer, start, end, maxlen, 
+        predictions = predict(inputs, model, tokenizer_in, tokenizer_out, start, end, maxlen, 
             special_tokens=True, device=device)
 
         # get BLEU scroes
@@ -41,7 +47,7 @@ class Evaluator:
             net_bleu += calc_ngrams_score(pred, ref, mode, ngrams)["bleu"]
         # set best bleu score calculated
         self.bleu = max(net_bleu / self.sample, bleu)
-        return self.bleu
+        return net_bleu / self.sample
 
     def done(self):
         return self.bleu >= self.threshold

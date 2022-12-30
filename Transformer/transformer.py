@@ -4,12 +4,12 @@ from layers import Encoder, Decoder
 
 class Transformer(nn.Module):
     
-    def __init__(self, vocab_size, maxlen, pad_id, dm=512, nhead=8, layers=6, 
+    def __init__(self, vocab_enc, vocab_dec, maxlen, pad_id, dm=512, nhead=8, layers=6, 
                     dff=2048, bias=False, dropout=0.1, eps=1e-5) -> None:
         super().__init__()
-        self.encoder = Encoder(vocab_size, maxlen, pad_id, \
+        self.encoder = Encoder(vocab_enc, maxlen, pad_id, \
                 dm, nhead, dff, layers, bias, dropout, eps)          
-        self.decoder = Decoder(vocab_size, maxlen, pad_id, \
+        self.decoder = Decoder(vocab_dec, maxlen, pad_id, \
                 dm, nhead, dff, layers, bias, dropout, eps)
         self.linear = self.decoder.embeddings.unembedding()
         self.pad_id = pad_id

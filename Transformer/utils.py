@@ -129,27 +129,27 @@ must match the data type of labels ({type(labels[0])})")
         return str(self.dataframe())
 
     # gives back a tokenized dataset
-    def tokenized(self, tokenizer, model=True):
+    def tokenized(self, tokenizer_enc, tokenized_dec, model=True):
         inputs, labels = self.list()
-        input_tokens, label_tokens = tokenizer.encode(inputs, model=model), \
-            tokenizer.encode(labels, model=model)
+        input_tokens, label_tokens = tokenizer_enc.encode(inputs, model=model), \
+            tokenized_dec.encode(labels, model=model)
         return Dataset(input_tokens, label_tokens)
 
     # finds the average length of tokenized sequences
-    def avglen(self, tokenizer, factor=1):
+    def avglen(self, tokenizer_enc, tokenizer_dec, factor=1):
         inputs, labels = self.list()
         # give back higher average of average lengths of sequences
-        m = sum(len(input) for input in tokenizer(inputs, model=True)) / self.size
-        n = sum(len(input) for input in tokenizer(labels, model=True)) / self.size
+        m = sum(len(input) for input in tokenizer_enc(inputs, model=True)) / self.size
+        n = sum(len(input) for input in tokenizer_dec(labels, model=True)) / self.size
         # apply factor to incorporate outlier sequences
         return int(np.rint(max(m, n)) * factor)
     
     # gives back maxlen between tokenized sequences
-    def maxlen(self, tokenizer, factor=1):
+    def maxlen(self, tokenizer_enc, tokenizer_dec, factor=1):
         inputs, labels = self.list()
         # find max longest sequence in inputs & labels
-        max_inputs = len(max(tokenizer(inputs), key=len))
-        max_labels = len(max(tokenizer(labels), key=len))
+        max_inputs = len(max(tokenizer_enc(inputs), key=len))
+        max_labels = len(max(tokenizer_dec(labels), key=len))
         # give back greatest of the two
         return int(np.rint(max(max_inputs, max_labels) * factor))
 
@@ -242,11 +242,11 @@ class Checkpoint:
         # overwrite current state of checkpoint (optional)
         if checkpoint["scheduler_params"] and self.scheduler:
             self.scheduler.load_state_dict(checkpoint["scheduler_params"])
-        if checkpoint["evaluator"] and self.evaluator:
+        if checkpoint["evaluator"]:
             self.evaluator = checkpoint["evaluator"]
-        if checkpoint["bleu"] and self.bleu:
+        if checkpoint["bleu"]:
             self.bleu = checkpoint["bleu"]
-        if checkpoint["duration"] and self.clock:
+        if checkpoint["duration"]:
             self.clock = Clock(checkpoint["duration"])
     
         # display info
