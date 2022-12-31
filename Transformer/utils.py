@@ -129,27 +129,29 @@ must match the data type of labels ({type(labels[0])})")
         return str(self.dataframe())
 
     # gives back a tokenized dataset
-    def tokenized(self, tokenizer_enc, tokenized_dec, model=True):
+    def tokenized(self, tokenizer, model=True):
         inputs, labels = self.list()
-        input_tokens, label_tokens = tokenizer_enc.encode(inputs, model=model), \
-            tokenized_dec.encode(labels, model=model)
+        input_tokens, label_tokens = tokenizer.encode(inputs, model=model, module="encoder"), \
+            tokenizer.encode(labels, model=model, module="decoder")
         return Dataset(input_tokens, label_tokens)
 
     # finds the average length of tokenized sequences
-    def avglen(self, tokenizer_enc, tokenizer_dec, factor=1):
+    def avglen(self, tokenizer, factor=1):
         inputs, labels = self.list()
         # give back higher average of average lengths of sequences
-        m = sum(len(input) for input in tokenizer_enc(inputs, model=True)) / self.size
-        n = sum(len(input) for input in tokenizer_dec(labels, model=True)) / self.size
+        m = sum(len(input) for input in \
+            tokenizer.encode(inputs, model=True, module="encoder")) / self.size
+        n = sum(len(label) for label in\
+            tokenizer.encode(labels, model=True, module="decoder")) / self.size
         # apply factor to incorporate outlier sequences
         return int(np.rint(max(m, n)) * factor)
     
     # gives back maxlen between tokenized sequences
-    def maxlen(self, tokenizer_enc, tokenizer_dec, factor=1):
+    def maxlen(self, tokenizer, factor=1):
         inputs, labels = self.list()
         # find max longest sequence in inputs & labels
-        max_inputs = len(max(tokenizer_enc(inputs), key=len))
-        max_labels = len(max(tokenizer_dec(labels), key=len))
+        max_inputs = len(max(tokenizer.encode(inputs, module="encoder"), key=len))
+        max_labels = len(max(tokenizer.encode(labels, module="decoder"), key=len))
         # give back greatest of the two
         return int(np.rint(max(max_inputs, max_labels) * factor))
 
@@ -164,7 +166,7 @@ must match the data type of labels ({type(labels[0])})")
 
 class Checkpoint:
 
-    def __init__(self, model, optimizer, scheduler=None, evaluator=None, clock=None, epochs=5, path=None, overwrite=False, verbose=True):
+    def __init__(self, model, optimizer, scheduler=None, evaluator=None, clock=None, epochs=5, path=None, overwrite=False):
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -176,7 +178,6 @@ class Checkpoint:
         self.epoch = 0
         self.loss = None
         self.bleu = None
-        self.verbose = verbose
 
     def check(self, loss):
         # save current model state
@@ -219,13 +220,12 @@ class Checkpoint:
             "bleu": self.evaluator.bleu if self.evaluator \
                 else None,
             "duration": self.clock.duration if self.clock \
+                else None,
+            "zero": self.clock.zero if self.clock \
                 else None
         }, path)
-        # display info
-        if self.verbose:
-            print(f"Checkpoint saved")
             
-    def load_checkpoint(self, path=None, device=None): 
+    def load_checkpoint(self, path=None, verbose=True, device=None): 
         if path is None:
             path = "checkpoint"
         # load checkpoint
@@ -246,12 +246,12 @@ class Checkpoint:
             self.evaluator = checkpoint["evaluator"]
         if checkpoint["bleu"]:
             self.bleu = checkpoint["bleu"]
-        if checkpoint["duration"]:
-            self.clock = Clock(checkpoint["duration"])
-    
-        # display info
-        if self.verbose:
-            print(f"Checkpoint loaded")
+        if checkpoint["duration"] is not None and \
+            checkpoint["zero"] is not None:
+            self.clock = Clock(checkpoint["duration"], checkpoint["zero"])
+
+        if verbose:
+            print("Checkpoint Loaded")
     
     def state_dict(self):
         return {"model": self.model,
@@ -266,19 +266,20 @@ class Checkpoint:
 
 class Clock:
 
-    def __init__(self, duration=0) -> None:
+    def __init__(self, duration=0, zero=None) -> None:
         self.duration = duration
-        self.zero = None
+        self.zero = zero
         self.current = None
 
     def start(self):
-        self.zero = time.time()
-        self.current = self.zero
+        if self.zero is None:
+            self.zero = time.time()
+        self.current = time.time()
 
     def tick(self):
         now = time.time()
         elapsed = now - self.zero
-        self.duration += elapsed
+        self.duration = elapsed
 
     def clock(self, start, end):
         elapsed = end - start

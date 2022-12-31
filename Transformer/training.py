@@ -13,6 +13,7 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
     saved = done = False
     model.train()
     if clock:
+        clock.reset()
         clock.start()
     if verbose:
         print("Training Started")
@@ -85,7 +86,7 @@ def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, devi
     scheduler = info["scheduler"]
     evaluator = info["evaluator"]
     clock = info["clock"]
-    epoch = info["epoch"]
+    epoch_start = info["epoch"]
     net_loss = info["loss"]
     bleu = info["bleu"]
 
@@ -101,7 +102,7 @@ def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, devi
         print("Training Resumed")
 
     # train over epochs
-    for epoch in range(epochs):
+    for epoch in range(epoch_start, epochs):
 
         accum_loss = 0 # reset accumulative loss
 
@@ -161,6 +162,7 @@ def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, devi
 
 def train_printer(loss, epoch=None, clock=None, bleu=None, warmup=None, saved=None):
     # basic info
+    bar = f"{'-' * 70}"
     info = f"Epoch {epoch} Complete | " if epoch else "Training Complete | "
     # time info
     if clock:
@@ -182,20 +184,19 @@ def train_printer(loss, epoch=None, clock=None, bleu=None, warmup=None, saved=No
     # no other info
     else:
         info += "NA |"
-    
+    print(bar)
     print(info)
 
-def predict(sequences, model, tokenizer_enc, tokenizer_dec, start, end, maxlen, special_tokens=False, device=None):
+def predict(sequences, model, tokenizer, start, end, maxlen, special_tokens=False, device=None):
     # sequence inshape: (batch_size, src_len,)
 
-    # inference
-    tokenizer_enc.inference()
-    tokenizer_dec.inference()
-    token_ids = tokenizer_enc.encode(sequences, model=True)
+    # setup
+    tokenizer.inference()
     softmax = nn.Softmax(dim=-1)
     model.eval()
 
-    # get prediction for each sequence
+    # get prediction for encoded sequences
+    token_ids = tokenizer.encode(sequences, model=True, module="encoder")
     predictions = []
     for ids in token_ids:
 
@@ -231,21 +232,19 @@ def predict(sequences, model, tokenizer_enc, tokenizer_dec, start, end, maxlen, 
         # store tokens of predictions
         predictions.append(tgt.squeeze().tolist())
 
-    # create continuations
-    predictions = tokenizer_dec.decode(predictions, special_tokens)
+    # create continuations with decoder
+    predictions = tokenizer.decode(predictions, special_tokens=special_tokens, module="decoder")
     return predictions
 
 def prompt(model, tokenizer, start, end, device=None):
-    # default
-
-    # inference
+    # setup
     model.eval()
     tokenizer.inference()
     softmax = nn.Softmax(dim=-1)
 
-    # get input and tokenize
+    # get input and encode
     sequence = input("Enter in the sequence of text:\n\n").strip()
-    ids = tokenizer.encode(sequence, model=True)
+    ids = tokenizer.encode(sequence, model=True, module="encoder")
     maxlen = len(ids[0])
 
     # create src & tgt tensor
@@ -272,16 +271,10 @@ def prompt(model, tokenizer, start, end, device=None):
             break
 
     # maxlen exceeded
-    return f"{sequence} -> {tokenizer.decode(tgt.tolist())[0]}"
+    return f"{sequence} -> {tokenizer.decode(tgt.tolist(), module='decoder')[0]}"
 
 if __name__ == "__main__":
-    from utils import Clock, time
-    clock = Clock()
-    clock.start()
-    epoch = 5
-    loss = 0.30940429842
-    bleu = 25.4
-    train_printer(loss, epoch, clock, bleu, warmup=True, saved=True)
+    pass
 
     
 

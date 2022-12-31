@@ -48,7 +48,7 @@ class BaseTokenizer:
                 special_tokens=[(start, start_id), (end, end_id)])
 
     # encodes input to tokens or ids
-    def encode(self, data, model=False):
+    def encode(self, data, model=False, **kwargs):
         # handle single sequence or pair
         if isinstance(data, str):
             data = [data]
@@ -67,7 +67,7 @@ class BaseTokenizer:
         return encoded
         
     # decodies ids to tokens
-    def decode(self, data, special_tokens=False):
+    def decode(self, data, special_tokens=False, **kwargs):
         # decode the sequence(s)
         tokens = self.tokenizer.decode_batch(data, skip_special_tokens=not special_tokens)
         return tokens
@@ -116,7 +116,7 @@ class BaseTokenizer:
             return vocab.get(token, KeyError(f"{token} not in vocab"))
 
     # trys to encode then decode if possible
-    def __call__(self, data, model=False, special_tokens=False):
+    def __call__(self, data, model=False, special_tokens=False, **kwargs):
         try: return self.encode(data, model=model)
         except: 
             try: return self.decode(data, special_tokens=special_tokens)
@@ -129,6 +129,43 @@ class Nerdimizer(BaseTokenizer):
     def __init__(self, vocab=None):
         super().__init__(vocab, prefix="__", special_tokens={"start": "[S]", "end": "[E]", 
                                 "unknown": "[?]", "pad": "[P]", "mask": "[X]"})
+
+class Translator:
+
+    def __init__(self, tokenizer_encoder, tokenizer_decoder):
+        self.tokenizer_encoder = tokenizer_encoder
+        self.tokenizer_decoder = tokenizer_decoder
+
+    def encode(self, data, model=True, module=None):
+        if module == "encoder":
+            return self.tokenizer_encoder.encode(data, model=model)
+        if module == "decoder":
+            return self.tokenizer_decoder.encode(data, model=model)
+        if module is not None:
+            raise ValueError(f"Unknown argument: {module}")
+
+    def decode(self, data, special_tokens=False, module=None):
+        if module == "encoder":
+            return self.tokenizer_encoder.decode(data, special_tokens=special_tokens)
+        if module == "decoder":
+            return self.tokenizer_decoder.decode(data, special_tokens=special_tokens)
+        if module is not None:
+            raise ValueError(f"Unknown argument: {module}")
+
+    def padon(self, maxlen, end=True, pad_id=0):
+        self.tokenizer_encoder.padon(maxlen, end=end, pad_id=pad_id)
+        self.tokenizer_decoder.padon(maxlen, end=end, pad_id=pad_id)
+
+    def truncon(self, maxlen, end=True):
+        self.tokenizer_encoder.truncon(maxlen, end=end)
+        self.tokenizer_decoder.truncon(maxlen, end=end)
+
+    def inference(self):
+        self.tokenizer_encoder.inference()
+        self.tokenizer_decoder.inference()
+
+    def vocab_size(self):
+        return len(self.tokenizer_encoder), len(self.tokenizer_decoder)
 
 # saves tokenizer as json
 def save_tokenizer(tokenizer, path=None):
@@ -155,7 +192,6 @@ def load_tokenizer(path=None):
 
 if __name__ == "__main__":
     pass
-    
 
 
     
