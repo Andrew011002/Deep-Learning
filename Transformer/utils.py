@@ -8,6 +8,13 @@ from torch.utils.data import TensorDataset, DataLoader, IterableDataset
 def parameter_count(model):
     return sum(param.numel() for param in model.parameters() if param.requires_grad)
 
+def model_size(model):
+    params = model.parameters()
+    buffers = model.buffers()
+    param_size_mb = sum(param.nelement() * param.element_size() for param in params)
+    buffer_size_mb = sum(buffer.nelement() * buffer.element_size() for buffer in buffers)
+    return (param_size_mb + buffer_size_mb) / np.power(1024, 2)
+
 def generate_masks(source, targets, pad_id):
     # inshape source: (batch_size, inputs_len) targets: (batch_size, outputs_len) pad_id: (,)
     tgt_len = targets.size(1)
