@@ -22,7 +22,7 @@ class Transformer(nn.Module):
         e_out, attn = self.encoder(src, src_mask=src_mask)
 
         # decode embeddings shape: d_out - (batch_size, tgt_len, dm)
-        d_out, attn1, attn2 = self.decoder(e_out, tgt, src_mask=src_mask, tgt_mask=tgt_mask)
+        d_out, attn, attn = self.decoder(e_out, tgt, src_mask=src_mask, tgt_mask=tgt_mask)
 
         # linear project out of decoder: out (batch_size, tgt_len, vocab_size)
         out = torch.matmul(d_out, self.linear.T)
