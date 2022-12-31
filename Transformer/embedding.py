@@ -1,7 +1,4 @@
-import torch
 import torch.nn as nn
-import numpy as np
-
 
 class Embeddings(nn.Module):
 
@@ -10,7 +7,7 @@ class Embeddings(nn.Module):
         self.embedding = nn.Embedding(n_tokens, dm, pad_id, **kwargs)
 
     def forward(self, x):
-        # inshape: (batch_size, seq_len)
+        # inshape: x - (batch_size, seq_len)
         return self.embedding(x)
     
     def unembedding(self):

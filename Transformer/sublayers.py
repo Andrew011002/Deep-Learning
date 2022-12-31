@@ -11,9 +11,9 @@ class ScaledDotProductAttention(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, q, k, v, mask=None):
-        # inputs are projected shape: q (batch_size, q_len, dk) k & v (batch_size, k_len, dk)
+        # inputs are projected shape: q - (batch_size, q_len, dk) k & v - (batch_size, k_len, dk)
 
-        # compute dot prod w/ q & k then normalize shape: similarities (batch_size, q_len, k_len)
+        # compute dot prod w/ q & k then normalize shape: similarities - (batch_size, q_len, k_len)
         similarities = torch.matmul(q, k.transpose(-2, -1)) * self.norm
 
         # apply mask (if required)
@@ -61,7 +61,7 @@ class MultiHeadAttention(nn.Module):
         # concat shape: attention (batch_size, nheads, q_len, k_len) context (batch_size, q_len, dm)
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.dm)
 
-        # project & drop neurons shape: context (batch_size, q_len, dm)
+        # project & drop neurons shape: context - (batch_size, q_len, dm)
         context = self.wo(context)
         context = self.dropout(context)
         return context, attention
@@ -75,14 +75,14 @@ class Norm(nn.Module):
         self.eps = eps
 
     def forward(self, x):
-        # input shape: (batch_size, seq_len, dm)
+        # input shape: x - (batch_size, seq_len, dm)
 
-        # calculate mean & standard deviation (along dm)
+        # calc mean & standard deviation (along dm)
         mean = torch.mean(x, dim=-1, keepdim=True)
-        var = torch.mean(torch.pow(x - mean, 2), dim=-1, keepdim=True)
+        var = torch.var(x, dim=-1, correction=1, keepdim=True)
         std = torch.sqrt(var + self.eps)
 
-        # normalize
+        # normalize, scale, & shift
         norm = (x - mean) / std
         return norm * self.gamma + self.beta
 
@@ -90,18 +90,18 @@ class FeedForwardNetwork(nn.Module):
 
     def __init__(self, dm, dff, dropout=0.1) -> None:
         super().__init__()
-        self.w1 = nn.Linear(dm, dff)
-        self.w2 = nn.Linear(dff, dm)
+        self.w1 = nn.Linear(dm, dff, bias=True)
+        self.w2 = nn.Linear(dff, dm, bias=True)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
-        # inshape (batch_size, seq_len, dm)
+        # inshape: x - (batch_size, seq_len, dm)
         
-        # first linear transform with ReLU shape: (batch_size, seq_len, dff)
+        # first linear transform with ReLU shape: x - (batch_size, seq_len, dff)
         x = self.relu(self.w1(x))
 
-        # second linear transform shape: (batch_size, seq_len, dm)
+        # second linear transform shape: x - (batch_size, seq_len, dm)
         x = self.w2(x)
         # drop neurons
         out = self.dropout(x)
