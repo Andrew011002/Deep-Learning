@@ -5,6 +5,9 @@ import numpy as np
 import pandas as pd
 from torch.utils.data import TensorDataset, DataLoader, IterableDataset
 
+def parameter_count(model):
+    return sum(param.numel() for param in model.parameters() if param.requires_grad)
+
 def generate_masks(source, targets, pad_id):
     # inshape source: (batch_size, inputs_len) targets: (batch_size, outputs_len) pad_id: (,)
     tgt_len = targets.size(1)
@@ -295,9 +298,9 @@ class Clock:
         return hours, minutes, seconds
     
     def asstr(self, hours, minutes, seconds):
-        hstr = f"0{hours:.0f}" if hours < 10 else f"{hours:.0f}"
-        mstr = f"0{minutes:.0f}" if minutes < 10 else f"{minutes:.0f}"
-        sstr = f"0{seconds:.0f}" if seconds < 10 else f"{seconds:.0f}"
+        hstr = f"0{hours:.0f}" if np.rint(hours) < 10 else f"{hours:.0f}"
+        mstr = f"0{minutes:.0f}" if np.rint(minutes) < 10 else f"{minutes:.0f}"
+        sstr = f"0{seconds:.0f}" if np.rint(seconds) < 10 else f"{seconds:.0f}"
         return f"{hstr}:{mstr}:{sstr}"
 
 # saves the model to a path

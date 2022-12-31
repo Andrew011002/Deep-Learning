@@ -162,7 +162,7 @@ def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, devi
 
 def train_printer(loss, epoch=None, clock=None, bleu=None, warmup=None, saved=None):
     # basic info
-    bar = f"{'-' * 70}"
+    div = f"{'-' * 79}"
     info = f"Epoch {epoch} Complete | " if epoch else "Training Complete | "
     # time info
     if clock:
@@ -184,7 +184,7 @@ def train_printer(loss, epoch=None, clock=None, bleu=None, warmup=None, saved=No
     # no other info
     else:
         info += "NA |"
-    print(bar)
+    print(div)
     print(info)
 
 def predict(sequences, model, tokenizer, start, end, maxlen, special_tokens=False, device=None):

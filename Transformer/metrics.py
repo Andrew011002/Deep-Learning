@@ -86,7 +86,6 @@ def calc_ngrams_score(prediction, reference, mode="geometric", ngrams=4, sos=Non
     # invalid mean
     else:
         raise ValueError(f"Invalid mode: {mode}")
-    print(metric)
     return metric
     
 # gets the ngram for a sequence

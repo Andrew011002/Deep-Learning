@@ -6,8 +6,8 @@ from utils import create_path
 def basic_tokenizer(vocab, prefix, special_tokens):
     # build tokenizer
     tokenizer = Tokenizer(models.WordPiece(vocab, unk_token=special_tokens["unknown"]))
-    tokenizer.normalizer = normalizers.Sequence([normalizers.Lowercase(), 
-                        normalizers.Strip()])
+    tokenizer.normalizer = normalizers.Sequence([normalizers.Lowercase(), normalizers.Strip(), 
+                        normalizers.NFD(), normalizers.StripAccents()])
     tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
     tokenizer.decoder = decoders.WordPiece(prefix=prefix)
     return tokenizer
