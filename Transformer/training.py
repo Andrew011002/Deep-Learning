@@ -167,7 +167,7 @@ def train_printer(loss, epoch=None, clock=None, bleu=None, warmup=None, saved=No
     # time info
     if clock:
         info += f"Epoch Duration: {clock.epoch()} | " if epoch else ""
-        info += f"Elapsed Time: {clock.elapsed()} |"
+        info += f"Elapsed Training Time: {clock.elapsed()} |"
     info += "\n"
     # metrics
     info += f"Metrics | Epoch Loss: {loss:.4f} | " if epoch else f"Metrics | Training Loss: {loss:.4f} | "

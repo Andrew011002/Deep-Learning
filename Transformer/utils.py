@@ -220,8 +220,6 @@ class Checkpoint:
             "bleu": self.evaluator.bleu if self.evaluator \
                 else None,
             "duration": self.clock.duration if self.clock \
-                else None,
-            "zero": self.clock.zero if self.clock \
                 else None
         }, path)
             
@@ -246,9 +244,8 @@ class Checkpoint:
             self.evaluator = checkpoint["evaluator"]
         if checkpoint["bleu"]:
             self.bleu = checkpoint["bleu"]
-        if checkpoint["duration"] is not None and \
-            checkpoint["zero"] is not None:
-            self.clock = Clock(checkpoint["duration"], checkpoint["zero"])
+        if checkpoint["duration"] is not None:
+            self.clock = Clock(checkpoint["duration"])
 
         if verbose:
             print("Checkpoint Loaded")
@@ -266,24 +263,17 @@ class Checkpoint:
 
 class Clock:
 
-    def __init__(self, duration=0, zero=None) -> None:
+    def __init__(self, duration=0) -> None:
         self.duration = duration
-        self.zero = zero
         self.current = None
 
     def start(self):
-        if self.zero is None:
-            self.zero = time.time()
         self.current = time.time()
-
-    def tick(self):
-        now = time.time()
-        elapsed = now - self.zero
-        self.duration = elapsed
 
     def clock(self, start, end):
         elapsed = end - start
         self.current = end
+        self.duration += elapsed
         return self.to_hour_min_sec(elapsed)
     
     def epoch(self):
@@ -292,7 +282,6 @@ class Clock:
         return self.asstr(h, m, s)
 
     def elapsed(self):
-        self.tick()
         elapsed = self.duration
         h, m, s = self.to_hour_min_sec(elapsed)
         return self.asstr(h, m, s)

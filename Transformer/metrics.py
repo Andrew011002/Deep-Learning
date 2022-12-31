@@ -4,14 +4,14 @@ from collections import Counter
 
 class Evaluator:
 
-    def __init__(self, dataset, tokenizer, start, end, maxlen, 
+    def __init__(self, dataset, tokenizer, sos, eos, maxlen, 
         sample=32, ngrams=4, threshold=30, mode="geometric", device=None):
         if sample > len(dataset):
             raise ValueError(f"Sample size cannot exceed {len(dataset)}")
         self.dataset = dataset
         self.tokenizer = tokenizer
-        self.start = start
-        self.end = end
+        self.sos = sos
+        self.eos = eos
         self.maxlen = maxlen
         self.sample = sample
         self.ngrams = ngrams
@@ -22,8 +22,8 @@ class Evaluator:
         self.passed = True
 
     def evaluate(self, model):
-        tokenizer, start, end, maxlen, ngrams, mode, device, bleu = \
-            self.tokenizer, self.start, self.end, self.maxlen, self.ngrams, \
+        tokenizer, sos, eos, maxlen, ngrams, mode, device, bleu = \
+            self.tokenizer, self.sos, self.eos, self.maxlen, self.ngrams, \
             self.mode, self.device, self.bleu
         # (disable padding)
         tokenizer.inference() 
@@ -35,13 +35,14 @@ class Evaluator:
         references = [pair[1] for pair in samples]
         references = tokenizer.encode(references, model=False, module="decoder") # encode tokens
         # generate prediction
-        predictions = predict(inputs, model, tokenizer, start, end, maxlen, 
+        predictions = predict(inputs, model, tokenizer, tokenizer[sos], tokenizer[eos], maxlen, 
             special_tokens=True, device=device)
 
         # get BLEU scroes
         net_bleu = 0
         for pred, ref in zip(predictions, references):
-            net_bleu += calc_ngrams_score(pred, ref, mode, ngrams)["bleu"]
+            pred = pred.split()
+            net_bleu += calc_ngrams_score(pred, ref, mode, ngrams, sos, eos)["bleu"]
         # set best bleu score calculated
         self.bleu = max(net_bleu / self.sample, bleu)
         return net_bleu / self.sample
@@ -49,10 +50,10 @@ class Evaluator:
     def done(self):
         return self.bleu >= self.threshold
 
-def calc_ngrams_score(prediction, reference, mode="geometric", ngrams=4, start=None, end=None):
+def calc_ngrams_score(prediction, reference, mode="geometric", ngrams=4, sos=None, eos=None):
     # remove special tokens
-    prediction = clean_sequence(prediction, start, end)
-    reference = clean_sequence(reference, start, end)
+    prediction = clean_sequence(prediction, sos, eos)
+    reference = clean_sequence(reference, sos, eos)
     
     # find score score for n grams
     metric = {"bleu": None, "percisions": [], \
@@ -62,6 +63,7 @@ def calc_ngrams_score(prediction, reference, mode="geometric", ngrams=4, start=N
         # generate ngrams
         pred_ngram, ref_ngram = get_ngram(prediction, n), \
             get_ngram(reference, n)
+
         # get counts for grams in ngrams
         pred_counts, ref_counts = Counter(pred_ngram), Counter(ref_ngram)
         # find matching ngrams (choose min to find correct matches for ngram)
@@ -69,8 +71,11 @@ def calc_ngrams_score(prediction, reference, mode="geometric", ngrams=4, start=N
             if ngram in ref_counts:
                 score += min(pred_counts[ngram], ref_counts[ngram])
         # avg score over length of prediction and accumulate score
-        metric["percisions"].append(score / len(pred_ngram) * 100)
-    
+        if len(pred_ngram) > 0:
+            metric["percisions"].append(score / len(pred_ngram) * 100)
+        else:
+            metric["percisions"].append(0)
+
     # calculate bleu score
     scores = metric["percisions"]
     # set bleu based on type of mean
@@ -81,24 +86,25 @@ def calc_ngrams_score(prediction, reference, mode="geometric", ngrams=4, start=N
     # invalid mean
     else:
         raise ValueError(f"Invalid mode: {mode}")
+    print(metric)
     return metric
     
 # gets the ngram for a sequence
 def get_ngram(sequence, ngram):
     output = []
-    for i in range(0, len(sequence)):
+    for i in range(len(sequence)):
         seq_ngram = sequence[i: i + ngram]
         if len(seq_ngram) == ngram:
             output.append(" ".join(seq_ngram))
     return output
 
-# removes start or end if contained within sequence
-def clean_sequence(sequence, start, end):
+# removes sos or eos if contained within sequence
+def clean_sequence(sequence, sos, eos):
     # sequence: str
-    if sequence[0] == start:
+    if sequence[0] == sos:
         sequence = sequence[1:]
-    if sequence[-1] == end:
-        sequence - sequence[:-1]
+    if sequence[-1] == eos:
+        sequence = sequence[:-1]
     return sequence
 
 # finds geometric mean over list of values
@@ -107,10 +113,7 @@ def geometric_mean(scores):
     return np.power(np.prod(scores), 1 / n)
 
 if __name__ == "__main__":
-    prediction = "I have thirty six years old".split()
-    reference = "I am thirty six years old".split()
-    metric = calc_ngrams_score(prediction, reference, mode="geometric", ngrams=4)
-    print(metric)
+    pass
 
 
 

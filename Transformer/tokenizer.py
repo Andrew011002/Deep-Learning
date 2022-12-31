@@ -167,6 +167,9 @@ class Translator:
     def vocab_size(self):
         return len(self.tokenizer_encoder), len(self.tokenizer_decoder)
 
+    def __getitem__(self, token):
+        return self.tokenizer_encoder[token]
+
 # saves tokenizer as json
 def save_tokenizer(tokenizer, path=None):
     # default
