@@ -5,7 +5,6 @@ from utils import generate_masks
 
 def train(dataloader, model, optimizer, scheduler=None, evaluator=None, 
     checkpoint=None, clock=None, epochs=1000, warmups=100, verbose=True, device=None):
-
     # setup
     loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
     m = len(dataloader)
@@ -24,62 +23,58 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
         accum_loss = 0 # reset accumulative loss
 
         for i, data in enumerate(dataloader):
-            # get src and tgt
+            # get src & tgt
             inputs, labels = data
-            src, tgt, out = inputs, labels[:, :-1], labels[:, 1:] # shape: src (batch_size, src_len) tgt & out (batch_size, out_len)
+            src, tgt, out = inputs, labels[:, :-1], labels[:, 1:] # shape: src - (batch_size, src_len) tgt & out - (batch_size, tgt_len)
             src, tgt, out = src.long(), tgt.long(), out.long()
-            # generate the mask
+            # generate the masks
             src_mask, tgt_mask = generate_masks(src, tgt, model.pad_id)
-            
-            # move to device
+            # move to device 
             src, tgt, out = src.to(device), tgt.to(device), out.to(device)
             src_mask, tgt_mask = src_mask.to(device), tgt_mask.to(device)
 
             # zero the gradient
             optimizer.zero_grad()
-            # get prediction and reshape outputs
-            pred = model(src, tgt, src_mask=src_mask, tgt_mask=tgt_mask) # shape: (batch_size, seq_len, vocab_size)
-            pred, out = pred.view(-1, pred.size(-1)), out.contiguous().view(-1) # shape pred: (batch_size * seq_len, vocab_size) out: (batch_size * seq_len)
-            # calculate loss and back-propagate
+            # get pred & reshape outputs
+            pred = model(src, tgt, src_mask=src_mask, tgt_mask=tgt_mask) # shape: pred - (batch_size, seq_len, vocab_size)
+            pred, out = pred.view(-1, pred.size(-1)), out.contiguous().view(-1) # shape: pred - (batch_size * seq_len, vocab_size) out - (batch_size * seq_len)
+            # calc loss & backprop
             loss = loss_fn(pred, out)
             loss.backward()
             optimizer.step()
-            # tally loss over time
+            # accumulate loss over time
             accum_loss += loss.item()
 
         # get losses
         epoch_loss = accum_loss / m
         net_loss += epoch_loss
-        # apply scheduler after warmups
+        # apply scheduler after warmups (if applicable)
         warmup = epoch + 1 < warmups if scheduler else None
         if epoch + 1 > warmups and scheduler:
             scheduler.step(epoch_loss) 
-        # check on checkpoint
+        # check on checkpoint (if applicable)
         if checkpoint:
             saved = checkpoint.check(epoch_loss)
-        # evaluate model
+        # evaluate model (if applicable)
         if evaluator:
             curr_bleu = evaluator.evaluate(model)
             done = evaluator.done()
-            model.train() # reset back
+            model.train() # reset back (model.eval() called)
             bleu = evaluator.bleu
-
-        # display info after end of epoch
         if verbose:
             train_printer(epoch_loss, epoch + 1, clock, curr_bleu, warmup, saved)
-        # model meets bleu score
+        # model meets bleu score (complete training)
         if done:
             break
 
-    net_loss /= epochs # avg accum loss over epochs
-    # display info after end of training
+    # calc avg train loss
+    train_loss = net_loss / epochs 
     if verbose:
-        train_printer(net_loss, None, clock, bleu, None, saved)
-    return net_loss
+        train_printer(train_loss, None, clock, bleu, None, saved)
+    return train_loss
 
 def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
-    
-    # resume from checkpoint
+    # grab info from checkpoint
     info = checkpoint.state_dict()
     model = info["model"]
     optimizer = info["optimizer"]
@@ -107,58 +102,57 @@ def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, devi
         accum_loss = 0 # reset accumulative loss
 
         for i, data in enumerate(dataloader):
-            # get src and tgt
+            # get src & tgt
             inputs, labels = data
-            src, tgt, out = inputs, labels[:, :-1], labels[:, 1:] # shape: src (batch_size, src_len) tgt & out (batch_size, out_len)
-            src, tgt, out = src.long(), tgt.long(), out.long()
+            src, tgt, out = inputs, labels[:, :-1], labels[:, 1:] # shape: src - (batch_size, src_len) tgt & out - (batch_size, tgt_len)
+            src, tgt, tgt = src.long(), tgt.long(), out.long()
             # generate the mask
             src_mask, tgt_mask = generate_masks(src, tgt, model.pad_id)
-            
             # move to device
             src, tgt, out = src.to(device), tgt.to(device), out.to(device)
             src_mask, tgt_mask = src_mask.to(device), tgt_mask.to(device)
 
             # zero the gradient
             optimizer.zero_grad()
-            # get prediction and reshape outputs
-            pred = model(src, tgt, src_mask=src_mask, tgt_mask=tgt_mask) # shape: (batch_size, seq_len, vocab_size)
-            pred, out = pred.view(-1, pred.size(-1)), out.contiguous().view(-1) # shape pred: (batch_size * seq_len, vocab_size) out: (batch_size * seq_len)
-            # calculate loss and back-propagate
+            # get pred & reshape outputs
+            pred = model(src, tgt, src_mask=src_mask, tgt_mask=tgt_mask) # shape: pred - (batch_size, seq_len, vocab_size)
+            pred, out = pred.view(-1, pred.size(-1)), out.contiguous().view(-1) # shape: pred - (batch_size * seq_len, vocab_size) out - (batch_size * seq_len)
+            # calc loss & backprop
             loss = loss_fn(pred, out)
             loss.backward()
             optimizer.step()
-            # tally loss over time
+            # accumulate loss over time
             accum_loss += loss.item()
 
         # get losses
         epoch_loss = accum_loss / m
         net_loss += epoch_loss
-        # apply scheduler after warmups
+        # apply scheduler after warmups (if applicable)
         warmup = epoch + 1 < warmups if scheduler else None
         if epoch + 1 > warmups and scheduler:
             scheduler.step(epoch_loss) 
-        # check on checkpoint
+        # check on checkpoint (if applicable)
         if checkpoint:
             saved = checkpoint.check(epoch_loss)
-        # evaluate model
+        # evaluate model (if applicable)
         if evaluator:
             curr_bleu = evaluator.evaluate(model)
             done = evaluator.done()
-            model.train() # reset back
+            model.train() # reset back (model.eval() called)
             bleu = evaluator.bleu
 
         # display info after end of epoch
         if verbose:
             train_printer(epoch_loss, epoch + 1, clock, curr_bleu, warmup, saved)
-        # model meets bleu score
+        # model meets bleu score (complete training)
         if done:
             break
-
-    net_loss /= epochs # avg accum loss over epochs
-    # display info after end of training
+    
+    # calc avg train loss
+    train_loss = net_loss / epochs 
     if verbose:
-        train_printer(net_loss, None, clock, bleu, None, saved)
-    return net_loss
+        train_printer(train_loss, None, clock, bleu, None, saved)
+    return train_loss
 
 def train_printer(loss, epoch=None, clock=None, bleu=None, warmup=None, saved=None):
     # basic info
@@ -188,26 +182,23 @@ def train_printer(loss, epoch=None, clock=None, bleu=None, warmup=None, saved=No
     print(info)
 
 def predict(sequences, model, tokenizer, start, end, maxlen, special_tokens=False, device=None):
-    # sequence inshape: (batch_size, src_len,)
+    # inshape: sequences - (batch_size, seq_len)
 
     # setup
     tokenizer.inference()
     softmax = nn.Softmax(dim=-1)
     model.eval()
 
-    # get prediction for encoded sequences
+    # get pred for encoded sequences
     token_ids = tokenizer.encode(sequences, model=True, module="encoder")
     predictions = []
     for ids in token_ids:
-
-        # create src tensor
+        # create src & tgt tensors shape: src - (1, src_len) tgt - (1, 1)
         ids = np.array(ids, dtype=int)
-        src = torch.from_numpy(ids).unsqueeze(0).long() # (1, src_len)
-        src_mask = (src != model.pad_id).unsqueeze(-2)
-
-        # create tgt tensor
-        tgt = torch.tensor([start]).unsqueeze(0).long() # generate start
-        
+        src = torch.from_numpy(ids).unsqueeze(0).long() 
+        tgt = torch.tensor([start]).unsqueeze(0).long() 
+        # get mask for src pad
+        src_mask = (src != model.pad_id).unsqueeze(-2) 
         # move tensors to device
         src = src.to(device)
         src_mask = src_mask.to(device)
@@ -215,26 +206,24 @@ def predict(sequences, model, tokenizer, start, end, maxlen, special_tokens=Fals
 
         # predict one token at a time
         while tgt.size(1) < maxlen:
-            # get model output
+            # get model output & prob distribution
             out = model(src, tgt, src_mask=src_mask)
-            # get probability distribution
             prob = softmax(out)
-
-            # get last token(s) of highest probability
-            pred = torch.argmax(prob, dim=-1)[:, -1] # shape: (1, 1)
-            pred = pred.contiguous().view(-1, 1)
-            # add token to current tgt (1, output_size + 1)
+            # get token with highest probability 
+            pred = torch.argmax(prob, dim=-1)[:, -1] 
+            pred = pred.contiguous().view(-1, 1) # shape: pred - (1, 1)
+            # add token to current shape: tgt - (1, tgt_len + 1)
             tgt = torch.cat((tgt, pred), dim=-1)
-
-            # done prediction
+            # done predicting
             if pred.item() == end:
                 break
+        
         # store tokens of predictions
         predictions.append(tgt.squeeze().tolist())
 
-    # create continuations with decoder
-    predictions = tokenizer.decode(predictions, special_tokens=special_tokens, module="decoder")
-    return predictions
+    # translate token ids for predictions
+    translations = tokenizer.decode(predictions, special_tokens=special_tokens, module="decoder")
+    return translations
 
 def prompt(model, tokenizer, start, end, device=None):
     # setup
@@ -242,36 +231,31 @@ def prompt(model, tokenizer, start, end, device=None):
     tokenizer.inference()
     softmax = nn.Softmax(dim=-1)
 
-    # get input and encode
+    # get input & encode
     sequence = input("Enter in the sequence of text:\n\n").strip()
     ids = tokenizer.encode(sequence, model=True, module="encoder")
     maxlen = len(ids[0])
-
-    # create src & tgt tensor
+    # create src & tgt tensor shape: src - (1, input_len) tgt - (1, 1)
     src = torch.tensor(ids).unsqueeze(0).long().to(device)
     tgt = torch.tensor([start]).unsqueeze(0).to(device)
 
-    # predict start from src until maxlen or end token hit
+    # get prediction for encoded sequence
     while tgt.size(1) <= maxlen:  
-
-        # get model output 
+        # get model output & prob distribution
         out = model(src, tgt, src_mask=None, tgt_mask=None)
-        # get probability distribution
         prob = softmax(out)
-
         # get token with highest probability
-        pred = torch.argmax(prob, dim=-1)[:, -1]
-        pred = pred.contiguous().view(-1, 1)
-
-        # combine prediction
+        pred = torch.argmax(prob, dim=-1)[:, -1] 
+        pred = pred.contiguous().view(-1, 1) # shape: pred - (1, 1)
+        # add token to current shape: tgt - (1, tgt_len + 1)
         tgt = torch.cat((tgt, pred), dim=-1)
-
-        # predicted end
+        # done predictiong
         if pred.item() == end:
             break
 
-    # maxlen exceeded
-    return f"{sequence} -> {tokenizer.decode(tgt.tolist(), module='decoder')[0]}"
+    # translate token ids for prediction
+    translation = tokenizer.decode(tgt.tolist(), module="decoder")[0]
+    return translation
 
 if __name__ == "__main__":
     pass
