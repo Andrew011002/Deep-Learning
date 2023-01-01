@@ -22,10 +22,10 @@ class Evaluator:
         self.passed = True
 
     def evaluate(self, model):
-        tokenizer, sos, eos, maxlen, ngrams, mode, device, bleu = \
+        tokenizer, sos, eos, maxlen, ngrams, mode, device = \
             self.tokenizer, self.sos, self.eos, self.maxlen, self.ngrams, \
-            self.mode, self.device, self.bleu
-        # (disable padding)
+            self.mode, self.device
+        # setup
         tokenizer.inference() 
         tokenizer.truncon(maxlen, end=True)
         
@@ -34,79 +34,81 @@ class Evaluator:
         inputs = [pair[0] for pair in samples]
         references = [pair[1] for pair in samples]
         references = tokenizer.encode(references, model=False, module="decoder") # encode tokens
-        # generate prediction
+        # generate predictions
         predictions = predict(inputs, model, tokenizer, tokenizer[sos], tokenizer[eos], maxlen, 
             special_tokens=True, device=device)
 
-        # get BLEU scroes
+        # get BLEU scroes between predictions and references
         net_bleu = 0
         for pred, ref in zip(predictions, references):
             pred = pred.split()
             net_bleu += calc_ngrams_score(pred, ref, mode, ngrams, sos, eos)["bleu"]
+
         # set best bleu score calculated
-        self.bleu = max(net_bleu / self.sample, bleu)
-        return net_bleu / self.sample
+        bleu = net_bleu / len(predictions)
+        self.bleu = max(bleu, self.bleu)
+        return bleu
 
     def done(self):
         return self.bleu >= self.threshold
 
 def calc_ngrams_score(prediction, reference, mode="geometric", ngrams=4, sos=None, eos=None):
+    # setup
+    metric = {"bleu": None, "percisions": [], "prediction length": len(prediction), 
+                "reference length": len(reference)}
     # remove special tokens
     prediction = clean_sequence(prediction, sos, eos)
     reference = clean_sequence(reference, sos, eos)
     
-    # find score score for n grams
-    metric = {"bleu": None, "percisions": [], \
-        "prediction length": len(prediction), "reference length": len(reference)}
+    # find scores for each ngram
     for n in range(1, ngrams + 1):
-        score = 0
-        # generate ngrams
+
+        score = 0 # reset every ngram
+
+        # generate ngrams & gram counts for pred & ref
         pred_ngram, ref_ngram = get_ngram(prediction, n), \
             get_ngram(reference, n)
-
-        # get counts for grams in ngrams
         pred_counts, ref_counts = Counter(pred_ngram), Counter(ref_ngram)
+
         # find matching ngrams (choose min to find correct matches for ngram)
         for ngram in pred_counts:
             if ngram in ref_counts:
                 score += min(pred_counts[ngram], ref_counts[ngram])
-        # avg score over length of prediction and accumulate score
+        # avg score over length of pred ngram & append to scores
         if len(pred_ngram) > 0:
             metric["percisions"].append(score / len(pred_ngram) * 100)
+        # pred ngram was empty
         else:
             metric["percisions"].append(0)
 
-    # calculate bleu score
+    # calc bleu score based on mode
     scores = metric["percisions"]
-    # set bleu based on type of mean
     if mode == "geometric":
         metric["bleu"] = geometric_mean(scores)
     elif mode == "standard":
         metric["bleu"] = np.mean(scores)
-    # invalid mean
+    # invalid mode
     else:
         raise ValueError(f"Invalid mode: {mode}")
     return metric
     
-# gets the ngram for a sequence
 def get_ngram(sequence, ngram):
+    # get ngram for sequence
     output = []
     for i in range(len(sequence)):
         seq_ngram = sequence[i: i + ngram]
+        # valid ngram
         if len(seq_ngram) == ngram:
             output.append(" ".join(seq_ngram))
     return output
 
-# removes sos or eos if contained within sequence
 def clean_sequence(sequence, sos, eos):
-    # sequence: str
     if sequence[0] == sos:
         sequence = sequence[1:]
     if sequence[-1] == eos:
         sequence = sequence[:-1]
     return sequence
 
-# finds geometric mean over list of values
 def geometric_mean(scores):
     n = len(scores)
     return np.power(np.prod(scores), 1 / n)
