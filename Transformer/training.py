@@ -186,6 +186,7 @@ def predict(sequences, model, tokenizer, start, end, maxlen, special_tokens=Fals
 
     # setup
     tokenizer.inference()
+    tokenizer.truncon(maxlen)
     softmax = nn.Softmax(dim=-1)
     model.eval()
 
