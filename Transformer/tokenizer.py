@@ -1,4 +1,5 @@
 
+import torch
 from tokenizers import decoders, models, normalizers, pre_tokenizers,\
 processors, trainers, Tokenizer
 from utils import create_path
@@ -161,22 +162,30 @@ class Translator:
 
     def __getitem__(self, token):
         return self.tokenizer_encoder[token]
+    
+    def __call__(self, data, model=False, special_tokens=False, module=None):
+        if module == "encoder":
+            return self.tokenizer_encoder(data, model=model, special_tokens=special_tokens)
+        if module == "decoder":
+            return self.tokenizer_decoder(data, model=model, special_tokens=special_tokens)
+        if module is not None:
+            raise ValueError(f"Unknown argument: {module}")
 
-def save_tokenizer(tokenizer, path=None):
+def save_tokenizer(tokenizer, path=None, verbose=True):
     # default
     path = "tokenizer" if path is None else path
     # create path if non-existant
     create_path(path)
     # save tokenizer to path
-    tokenizer.tokenizer.save(f"{path}.json")
-    print(f"Tokenizer saved")
+    torch.save(tokenizer, f"{path}.pt")
+    if verbose:
+        print(f"Tokenizer saved")
 
 def load_tokenizer(path=None, verbose=True):
     # default
     path = "tokenizer" if path is None else path
-    # set tokenizer for base tokenizer from path
-    tokenizer = BaseTokenizer()
-    tokenizer.set_tokenizer(Tokenizer.from_file(f"{path}.json"))
+    # load tokenizer from path
+    tokenizer = torch.load(f"{path}.pt")
     if verbose:
         print(f"Tokenizer loaded")
     return tokenizer

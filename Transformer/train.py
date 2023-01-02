@@ -54,7 +54,7 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
             scheduler.step(epoch_loss) 
         # check on checkpoint (if applicable)
         if checkpoint:
-            saved = checkpoint.check(epoch_loss)
+            saved = checkpoint.check(net_loss)
         # evaluate model (if applicable)
         if evaluator:
             curr_bleu = evaluator.evaluate(model)
@@ -73,9 +73,10 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
         train_printer(train_loss, None, clock, bleu, None, saved)
     return train_loss
 
-def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
+def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
     # grab info from checkpoint
     info = checkpoint.state_dict()
+    dataloader = info["dataloader"]
     model = info["model"]
     optimizer = info["optimizer"]
     scheduler = info["scheduler"]
@@ -133,7 +134,7 @@ def retrain(dataloader, checkpoint, epochs=1000, warmups=100, verbose=True, devi
             scheduler.step(epoch_loss) 
         # check on checkpoint (if applicable)
         if checkpoint:
-            saved = checkpoint.check(epoch_loss)
+            saved = checkpoint.check(net_loss)
         # evaluate model (if applicable)
         if evaluator:
             curr_bleu = evaluator.evaluate(model)

@@ -12,6 +12,7 @@ class Transformer(nn.Module):
         self.decoder = Decoder(vocab_dec, maxlen, pad_id, dm, nhead, dff, \
             layers=layers, bias=bias, dropout=dropout, eps=eps)
         self.linear = self.decoder.embeddings.unembedding()
+        self.maxlen = maxlen
         self.pad_id = pad_id
         self.xavier_init()
 

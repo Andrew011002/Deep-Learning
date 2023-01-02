@@ -166,7 +166,9 @@ Valid arguments: (inputs, labels, both)")
 
 class Checkpoint:
 
-    def __init__(self, model, optimizer, scheduler=None, evaluator=None, clock=None, epochs=5, path=None, overwrite=False):
+    def __init__(self, dataloader, model, optimizer, scheduler=None, evaluator=None, 
+                    clock=None, epochs=5, path=None, overwrite=False):
+        self.dataloader = dataloader
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -203,6 +205,7 @@ class Checkpoint:
 
         torch.save({
             # required
+            "dataloader": self.dataloader,
             "model_params": self.model.state_dict(),
             "optimizer_params": self.optimizer.state_dict(),
             "epoch": self.epoch,
@@ -229,6 +232,7 @@ class Checkpoint:
         path = f"{path}.pt"
         checkpoint = torch.load(path, map_location=device) 
         # overwrite current state of checkpoint (required)
+        self.dataloader = checkpoint["dataloader"]
         self.model.load_state_dict(checkpoint["model_params"])
         self.optimizer.load_state_dict(checkpoint["optimizer_params"])
         self.epoch = checkpoint["epoch"]
@@ -249,7 +253,8 @@ class Checkpoint:
             print("Checkpoint Loaded")
     
     def state_dict(self):
-        return {"model": self.model,
+        return {"dataloader": self.dataloader,
+                "model": self.model,
                 "optimizer": self.optimizer,
                 "scheduler": self.scheduler,
                 "evaluator": self.evaluator,
