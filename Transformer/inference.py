@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+from pytorch_beam_search.seq2seq import beam_search, greedy_search
 from transformer import Transformer
 
 def predict(sequences, model, tokenizer, start, end, maxlen, special_tokens=False, device=None):
@@ -80,17 +81,25 @@ def prompt(model, tokenizer, start, end, device=None):
     translation = tokenizer.decode(tgt.tolist(), module="decoder")[0]
     return translation
 
+def beam_search(model, inputs, scores, maxlen, beam=3, mask=None, cache=[]):
+    # inshape: inputs - (1, input_)
 
-def beam_search(model, beam, src, tgt, end, maxlen, src_mask):
-    # inshape: src - (1, src_len) tgt - (1, 1)
-
-    # setup
     softmax = nn.Softmax(dim=-1)
-    searches = [[tgt, 0] for i in range(beam)]
-    beams = []
+    out = model(inputs, outputs, src_mask=mask)
+    prob = softmax(out)
+    preds, indices = torch.topk(prob, k=beam, dim=-1) # shape: pred & indices - (batch_size, 1, beam)
+    preds, indices = preds.squeeze(), indices.squeeze()
 
-    pass
-            
+
+
+def log_score(tensor, alpha=0.6):
+    norm = 1 / np.power(tensor.size(1), alpha)
+    log_prob = torch.log(tensor)
+    return norm * torch.sum(log_prob, dim=-1, keepdim=True)
             
 if __name__ == "__main__":
-    pass
+    maxlen = 25
+    start, end, pad = 1, 2, 0
+    model = Transformer(vocab_enc=100, vocab_dec=100, maxlen=maxlen, pad_id=pad)
+    src, tgt = torch.randint(0, 100, (1, maxlen)), (torch.tensor([[start]]), 0)
+    beam_search(list(), model, src, tgt, end, maxlen, beam=3)
