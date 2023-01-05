@@ -1,5 +1,5 @@
 import numpy as np
-from train import predict
+from inference import predict
 from collections import Counter
 
 class Evaluator:
