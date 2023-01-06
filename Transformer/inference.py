@@ -60,8 +60,11 @@ def prompt(model, tokenizer, start, end, device=None):
     ids = tokenizer.encode(sequence, model=True, module="encoder")
     maxlen = len(ids[0])
     # create src & tgt tensor shape: src - (1, input_len) tgt - (1, 1)
-    src = torch.tensor(ids).unsqueeze(0).long().to(device)
-    tgt = torch.tensor([start]).unsqueeze(0).to(device)
+    src = torch.tensor(ids).unsqueeze(0).long()
+    tgt = torch.tensor([start]).unsqueeze(0)
+    # move to device
+    src = src.to(device)
+    tgt = tgt.to(device)
 
     # get prediction for encoded sequence
     while tgt.size(1) <= maxlen:  
@@ -81,16 +84,89 @@ def prompt(model, tokenizer, start, end, device=None):
     translation = tokenizer.decode(tgt.tolist(), module="decoder")[0]
     return translation
 
-def beam_search(model, inputs, scores, maxlen, beam=3, mask=None, cache=[]):
-    # inshape: inputs - (1, input_)
+class Greedy:
 
-    softmax = nn.Softmax(dim=-1)
-    out = model(inputs, outputs, src_mask=mask)
-    prob = softmax(out)
-    preds, indices = torch.topk(prob, k=beam, dim=-1) # shape: pred & indices - (batch_size, 1, beam)
-    preds, indices = preds.squeeze(), indices.squeeze()
+    def __init__(self) -> None:
+        pass
+
+    def search(self, ids):
+        pass
+
+def greedy_search():
+    pass
 
 
+class Beam:
+
+    def __init__(self, model, start, end, maxlen, beam_width=3, breadth=100, alpha=0.6):
+        self.model = model
+        self.start = start
+        self.end = end
+        self.maxlen = maxlen
+        self.beam_width = beam_width
+        self.breadth = breadth
+        self.aplpha = alpha
+        self.base = torch.tensor([1e-9]).unsqueeze(0)
+
+    def search(self, ids, device=None):
+        # inshape: ids - (1, inputs_len)
+        model, start, end, maxlen, beam_width, breadth, alpha, base = \
+            self.model, self.start, self.end, self.maxlen, self.beam_width, \
+            self.breadth, self.aplpha, self.base
+
+        # create src & tgt tensors shape: src - (1, src_len) tgt - (1, 1)
+        ids = np.array(ids, dtype=int)
+        src = torch.tensor(ids).unsqueeze(0).long()
+        tgt = torch.tensor([start]).unsqueeze(0).long()
+        # generate mask
+        mask = (src != pad).unsqueeze(-2)
+        # move to device
+        src = src.to(device)
+        tgt = tgt.to(device)
+        mask = mask.to(device)
+
+        # search beams until populated
+        searches = beam_search(model, src, (tgt, base), end, maxlen, beam_width, 
+                                max_breadth=breadth, alpha=alpha, mask=mask)
+        # get topk searches
+        beams = sorted(searches, reverse=True, key=lambda cand: cand[1].item())[:beam_width]
+        return beams
+        
+def beam_search(model, input, candidate, end, maxlen, beam_width=3, searches=[], 
+                max_breadth=100, alpha=0.6, mask=None):
+    # inshape: input - (1, input_len)
+
+    # searches fully populated
+    if len(searches) == max_breadth:
+        return searches
+
+    # shape: output & score - (1, tgt_len)
+    output, score = candidate
+    # base cases
+    if output[:, -1] == end or output.size(1) == maxlen:
+        searches.append((output, log_score(score, alpha)))
+        return searches
+
+    # get topk tokens within beam width from model output
+    softmax = nn.Softmax(dim=-1)    
+    out = model(input, output, src_mask=mask)
+    # shape: prob - (1, tgt_len, vocab_size)
+    prob = softmax(out)[:, -1] 
+    # shape: pred & indices - (batch_size, 1, beam_width)
+    pred, indices = torch.topk(prob, k=beam_width, dim=-1) 
+
+    # expand search for possible tokens within beam width
+    for i in range(pred.size(-1)):
+        token, logit = indices[:, i].unsqueeze(-1), pred[:, i].unsqueeze(-1)
+        # combine token & logit shape: beam & beam_score - (1, output_len + 1)
+        beam, beam_score = torch.cat((output, token), dim=-1), torch.cat((score, logit), dim=-1)
+        candidate = (beam, beam_score)
+        # continue search with new beam & score
+        searches = beam_search(model, input, candidate, end, maxlen, beam_width, 
+                            max_breadth=max_breadth, alpha=alpha, mask=mask)
+
+    # return candidates
+    return searches
 
 def log_score(tensor, alpha=0.6):
     norm = 1 / np.power(tensor.size(1), alpha)
@@ -98,8 +174,11 @@ def log_score(tensor, alpha=0.6):
     return norm * torch.sum(log_prob, dim=-1, keepdim=True)
             
 if __name__ == "__main__":
-    maxlen = 25
+    beam_width = 3
+    maxlen = 10
     start, end, pad = 1, 2, 0
     model = Transformer(vocab_enc=100, vocab_dec=100, maxlen=maxlen, pad_id=pad)
-    src, tgt = torch.randint(0, 100, (1, maxlen)), (torch.tensor([[start]]), 0)
-    beam_search(list(), model, src, tgt, end, maxlen, beam=3)
+    ids = [1] + [np.random.randint(0, 100) for i in range(maxlen - 2)] + [2]
+    beam = Beam(model, start, end, maxlen, beam_width, breadth=25, alpha=0.6)
+    beams = beam.search(ids)
+    print(beams)
