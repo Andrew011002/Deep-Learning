@@ -86,16 +86,60 @@ def prompt(model, tokenizer, start, end, device=None):
 
 class Greedy:
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, model, start, end, maxlen, alpha=0.6) -> None:
+        self.model = model
+        self.start = start
+        self.end = end
+        self.maxlen = maxlen
+        self.alpha = alpha
+        self.base = torch.tensor([1e-9]).unsqueeze(0)
 
-    def search(self, ids):
-        pass
+    def search(self, ids, device=None):
+        # inshape: ids = (ids_len,)
 
-def greedy_search():
-    pass
+        model, start, end, maxlen, alpha, base = \
+            self.model, self.start, self.end, self.maxlen, self.alpha, self.base
+        
+        # create src & tgt tensors
+        ids = np.array(ids, dtype=int)
+        src = torch.from_numpy(ids).unsqueeze(0).long()
+        tgt = torch.tensor([start]).unsqueeze(0).long()
+        # generate mask
+        mask = (src != model.pad_id).unsqueeze(-2)
+        # move to device
+        src = src.to(device)
+        tgt = tgt.to(device)
+        mask = mask.to(device)
 
+        # predict best token given source
+        sequence, score = greedy_search(model, src, (tgt, base), end, maxlen, 
+                                        alpha=alpha, mask=mask)
+        return sequence, score
 
+def greedy_search(model, input, candidate, end, maxlen, alpha=0.6, mask=None):
+    # inshape: input - (1, input_len) 
+
+    # setup
+    model.eval()
+    softmax = nn.Softmax(dim=-1)
+
+    # shape: output & score - (1, 1)
+    output, score = candidate
+
+    # auto-regress until eos is predicted or output reaches maximum length
+    while output[:, -1] != end and output.size(1) != maxlen:
+        out = model(input, output, src_mask=mask)
+        # shape: prob (batch_size, 1, vocab_size)
+        prob = softmax(out)
+        # shape: pred - (1, 1)
+        pred = torch.argmax(prob, dim=-1)[:, -1]
+        pred = pred.contiguous().view(-1, 1)
+        score = torch.cat((score, prob[:, pred.item()]), dim=-1)
+        # combine with output
+        output = torch.cat((output, pred), dim=-1)
+    
+    return [output], [log_score(score, alpha)]
+    
 class Beam:
 
     def __init__(self, model, start, end, maxlen, beam_width=3, breadth=100, alpha=0.6):
@@ -109,7 +153,7 @@ class Beam:
         self.base = torch.tensor([1e-9]).unsqueeze(0)
 
     def search(self, ids, device=None):
-        # inshape: ids - (1, inputs_len)
+        # inshape: ids - (ids_len)
         model, start, end, maxlen, beam_width, breadth, alpha, base = \
             self.model, self.start, self.end, self.maxlen, self.beam_width, \
             self.breadth, self.aplpha, self.base
@@ -119,7 +163,7 @@ class Beam:
         src = torch.tensor(ids).unsqueeze(0).long()
         tgt = torch.tensor([start]).unsqueeze(0).long()
         # generate mask
-        mask = (src != pad).unsqueeze(-2)
+        mask = (src != model.pad_id).unsqueeze(-2)
         # move to device
         src = src.to(device)
         tgt = tgt.to(device)
@@ -128,9 +172,14 @@ class Beam:
         # search beams until populated
         searches = beam_search(model, src, (tgt, base), end, maxlen, beam_width, 
                                 max_breadth=breadth, alpha=alpha, mask=mask)
-        # get topk searches
-        beams = sorted(searches, reverse=True, key=lambda cand: cand[1].item())[:beam_width]
-        return beams
+        # get topk beams & scores
+        beams, scores = [], []
+        searches = sorted(searches, reverse=True, key=lambda cand: cand[1].item())[:beam_width]
+        # return as pair
+        for beam, score in searches:
+            beams.append(beam)
+            scores.append(score)
+        return beams, scores
         
 def beam_search(model, input, candidate, end, maxlen, beam_width=3, searches=[], 
                 max_breadth=100, alpha=0.6, mask=None):
@@ -140,32 +189,36 @@ def beam_search(model, input, candidate, end, maxlen, beam_width=3, searches=[],
     if len(searches) == max_breadth:
         return searches
 
-    # shape: output & score - (1, tgt_len)
+    # shape: output & score - (1, output_len)
     output, score = candidate
-    # base cases
+    # base cases (predicted eos or up to maximum length)
     if output[:, -1] == end or output.size(1) == maxlen:
+        # store beam & score
         searches.append((output, log_score(score, alpha)))
         return searches
 
-    # get topk tokens within beam width from model output
+    # setup
     softmax = nn.Softmax(dim=-1)    
+    model.eval()
+
+    # get topk tokens within beam width from model output
     out = model(input, output, src_mask=mask)
-    # shape: prob - (1, tgt_len, vocab_size)
+    # shape: prob - (1, vocab_size)
     prob = softmax(out)[:, -1] 
-    # shape: pred & indices - (batch_size, 1, beam_width)
-    pred, indices = torch.topk(prob, k=beam_width, dim=-1) 
+    # shape: pred & indices - (1, beam_width)
+    pred, indices = torch.topk(prob, k=beam_width, dim=-1)
 
     # expand search for possible tokens within beam width
     for i in range(pred.size(-1)):
         token, logit = indices[:, i].unsqueeze(-1), pred[:, i].unsqueeze(-1)
         # combine token & logit shape: beam & beam_score - (1, output_len + 1)
         beam, beam_score = torch.cat((output, token), dim=-1), torch.cat((score, logit), dim=-1)
+        # continue search with new candidate
         candidate = (beam, beam_score)
-        # continue search with new beam & score
         searches = beam_search(model, input, candidate, end, maxlen, beam_width, 
                             max_breadth=max_breadth, alpha=alpha, mask=mask)
 
-    # return candidates
+    # return all searches
     return searches
 
 def log_score(tensor, alpha=0.6):
@@ -180,5 +233,7 @@ if __name__ == "__main__":
     model = Transformer(vocab_enc=100, vocab_dec=100, maxlen=maxlen, pad_id=pad)
     ids = [1] + [np.random.randint(0, 100) for i in range(maxlen - 2)] + [2]
     beam = Beam(model, start, end, maxlen, beam_width, breadth=25, alpha=0.6)
-    beams = beam.search(ids)
+    beams, scores = beam.search(ids)
     print(beams)
+    print()
+    print(scores)
