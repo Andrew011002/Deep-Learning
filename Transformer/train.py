@@ -48,7 +48,7 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
         epoch_loss = accum_loss / m
         net_loss += epoch_loss
         # apply scheduler after warmups (if applicable)
-        warmup = epoch + 1 < warmups if scheduler else None
+        warmup = epoch + 1 <= warmups if scheduler else None
         if epoch + 1 > warmups and scheduler:
             scheduler.step(epoch_loss) 
         # check on checkpoint (if applicable)
@@ -126,7 +126,7 @@ def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
         epoch_loss = accum_loss / m
         net_loss += epoch_loss
         # apply scheduler after warmups (if applicable)
-        warmup = epoch + 1 < warmups if scheduler else None
+        warmup = epoch + 1 <= warmups if scheduler else None
         if epoch + 1 > warmups and scheduler:
             scheduler.step(epoch_loss) 
         # check on checkpoint (if applicable)
