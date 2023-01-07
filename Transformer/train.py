@@ -10,7 +10,6 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
     m = len(dataloader)
     net_loss = curr_bleu = bleu = 0
     saved = done = False
-    model.train()
     if clock:
         clock.reset()
         clock.start()
@@ -19,7 +18,7 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
 
     # train over epochs
     for epoch in range(epochs):
-
+        model.train() # set to train (set to eval for evaluator)
         accum_loss = 0 # reset accumulative loss
 
         for i, data in enumerate(dataloader):
@@ -57,9 +56,8 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
             saved = checkpoint.check(net_loss)
         # evaluate model (if applicable)
         if evaluator:
-            curr_bleu = evaluator.evaluate(model)
+            curr_bleu = evaluator.evaluate()
             done = evaluator.done()
-            model.train() # reset back (model.eval() called)
             bleu = evaluator.bleu
         if verbose:
             train_printer(epoch_loss, epoch + 1, clock, curr_bleu, warmup, saved)
@@ -68,10 +66,10 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
             break
 
     # calc avg train loss
-    train_loss = net_loss / epochs 
+    net_loss /= epochs 
     if verbose:
-        train_printer(train_loss, None, clock, bleu, None, saved)
-    return train_loss
+        train_printer(net_loss, None, clock, bleu, None, saved)
+    return net_loss
 
 def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
     # grab info from checkpoint
@@ -91,7 +89,6 @@ def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
     m = len(dataloader)
     curr_bleu = 0
     saved = done = False
-    model.train()
     if clock:
         clock.start()
     if verbose:
@@ -99,7 +96,7 @@ def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
 
     # train over epochs
     for epoch in range(epoch_start, epochs):
-
+        model.train() # set to train (set to eval for evaluator)
         accum_loss = 0 # reset accumulative loss
 
         for i, data in enumerate(dataloader):
@@ -137,9 +134,8 @@ def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
             saved = checkpoint.check(net_loss)
         # evaluate model (if applicable)
         if evaluator:
-            curr_bleu = evaluator.evaluate(model)
+            curr_bleu = evaluator.evaluate()
             done = evaluator.done()
-            model.train() # reset back (model.eval() called)
             bleu = evaluator.bleu
 
         # display info after end of epoch
@@ -150,10 +146,10 @@ def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
             break
     
     # calc avg train loss
-    train_loss = net_loss / epochs 
+    net_loss /= epochs 
     if verbose:
-        train_printer(train_loss, None, clock, bleu, None, saved)
-    return train_loss
+        train_printer(net_loss, None, clock, bleu, None, saved)
+    return net_loss
 
 def train_printer(loss, epoch=None, clock=None, bleu=None, warmup=None, saved=None):
     # basic info
@@ -181,8 +177,6 @@ def train_printer(loss, epoch=None, clock=None, bleu=None, warmup=None, saved=No
         info += "NA |"
     print(div)
     print(info)
-
-
 
 if __name__ == "__main__":
     pass

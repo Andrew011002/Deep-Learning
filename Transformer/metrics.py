@@ -4,26 +4,27 @@ from collections import Counter
 
 class Evaluator:
 
-    def __init__(self, dataset, tokenizer, sos, eos, maxlen, 
-        sample=32, ngrams=4, threshold=30, mode="geometric", device=None):
+    def __init__(self, dataset, tokenizer, search, sos, eos, maxlen, 
+        sample=32, ngrams=4, bleu_goal=30, mode="geometric", device=None):
         if sample > len(dataset):
             raise ValueError(f"Sample size cannot exceed {len(dataset)}")
         self.dataset = dataset
         self.tokenizer = tokenizer
+        self.search = search
         self.sos = sos
         self.eos = eos
         self.maxlen = maxlen
         self.sample = sample
         self.ngrams = ngrams
-        self.threshold = threshold
+        self.bleu_goal = bleu_goal
         self.mode = mode
         self.device = device
         self.bleu = 0
         self.passed = True
 
-    def evaluate(self, model):
-        tokenizer, sos, eos, maxlen, ngrams, mode, device = \
-            self.tokenizer, self.sos, self.eos, self.maxlen, self.ngrams, \
+    def evaluate(self):
+        tokenizer, search, sos, eos, maxlen, ngrams, mode, device = \
+            self.tokenizer, self.search, self.sos, self.eos, self.maxlen, self.ngrams, \
             self.mode, self.device
         # setup
         tokenizer.inference() 
@@ -35,8 +36,7 @@ class Evaluator:
         references = [pair[1] for pair in samples]
         references = tokenizer.encode(references, model=False, module="decoder") # encode tokens
         # generate predictions
-        predictions = predict(inputs, model, tokenizer, tokenizer[sos], tokenizer[eos], maxlen, 
-            special_tokens=True, device=device)
+        predictions = predict(inputs, tokenizer, search, special_tokens=True, device=device)
 
         # get BLEU scroes between predictions and references
         net_bleu = 0
@@ -50,7 +50,7 @@ class Evaluator:
         return bleu
 
     def done(self):
-        return self.bleu >= self.threshold
+        return self.bleu >= self.bleu_goal
 
 def calc_ngrams_score(prediction, reference, mode="geometric", ngrams=4, sos=None, eos=None):
     # setup
@@ -62,7 +62,6 @@ def calc_ngrams_score(prediction, reference, mode="geometric", ngrams=4, sos=Non
     
     # find scores for each ngram
     for n in range(1, ngrams + 1):
-
         score = 0 # reset every ngram
 
         # generate ngrams & gram counts for pred & ref
