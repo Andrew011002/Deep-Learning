@@ -1,21 +1,20 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from transformer import Transformer
 
-def predict(sequences, tokenizer, search, special_tokens=False, device=None):
+def predict(sequences, tokenizer, search, special_tokens=False):
     # inshape: sequences - (batch_size, seq_len*)
 
     # setup
     tokenizer.inference()
-    tokenizer.truncon(search.model.maxlen)
+    tokenizer.truncon(search.maxlen)
 
     # get pred for encoded sequences
     token_ids = tokenizer.encode(sequences, model=True, module="encoder")
     predictions = []
     for ids in token_ids:
         # get prediction from ids
-        sequence, score = search.search(ids, device=device)
+        sequence, score = search.search(ids)
         # store tokens of predictions
         predictions.append(sequence.squeeze().tolist())
 
@@ -23,14 +22,16 @@ def predict(sequences, tokenizer, search, special_tokens=False, device=None):
     translations = tokenizer.decode(predictions, special_tokens=special_tokens, module="decoder")
     return translations
 
-def prompt(tokenizer, search, device=None):
+def prompt(tokenizer, search):
+
     # setup
     tokenizer.inference()
+    tokenizer.truncon(search.maxlen)
 
     # get input & encode
     sequence = input("Enter in the sequence of text:\n\n").strip()
     ids = tokenizer.encode(sequence, model=True, module="encoder")
-    sequence, score = search.search(ids, device=device)
+    sequence, score = search.search(ids)
 
     # translate token ids for prediction
     translation = tokenizer.decode(sequence.tolist(), module="decoder")[0]
@@ -46,21 +47,22 @@ class DecoderSearch:
 
 class Greedy(DecoderSearch):
 
-    def __init__(self, model, start, end, maxlen, alpha=0.6) -> None:
+    def __init__(self, model, start, end, maxlen, alpha=0.6, device=None) -> None:
         super().__init__()
         self.model = model
         self.start = start
         self.end = end
         self.maxlen = min(model.maxlen, maxlen)
         self.alpha = alpha
+        self.device = device
         self.base = torch.tensor([1e-9]).unsqueeze(0)
 
-    def search(self, ids, device=None):
+    def search(self, ids):
         # inshape: ids - (ids_len, )
-        model, start, end, maxlen, alpha, base = \
-            self.model, self.start, self.end, self.maxlen, self.alpha, self.base
+        model, start, end, maxlen, alpha, device, base = \
+            self.model, self.start, self.end, self.maxlen, self.alpha, self.device, self.base
         
-        # create src & tgt tensors
+        # create src & tgt tensors src - (1, src_len) tgt - (1, 1)
         ids = np.array(ids, dtype=int)
         src = torch.from_numpy(ids).unsqueeze(0).long()
         tgt = torch.tensor([start]).unsqueeze(0).long()
@@ -103,7 +105,7 @@ def greedy_search(model, input, candidate, end, maxlen, alpha=0.6, mask=None):
     
 class Beam(DecoderSearch):
 
-    def __init__(self, model, start, end, maxlen, beam_width=3, breadth=100, mode="best", alpha=0.6):
+    def __init__(self, model, start, end, maxlen, beam_width=3, breadth=100, mode="best", alpha=0.6, device=None):
         super().__init__()
         self.model = model
         self.start = start
@@ -111,17 +113,18 @@ class Beam(DecoderSearch):
         self.maxlen = min(model.maxlen, maxlen)
         self.beam_width = beam_width
         self.breadth = breadth
-        self.aplpha = alpha
+        self.alpha = alpha
+        self.device = device
         self.base = torch.tensor([1e-9]).unsqueeze(0)
         if mode != "random" and mode != "best" and mode != "all":
             raise ValueError(f"Invalid mode: {mode}")
         self.mode = mode
 
-    def search(self, ids, device=None):
+    def search(self, ids):
         # inshape: ids - (ids_len, )
-        model, start, end, maxlen, beam_width, breadth, mode, alpha, base = \
+        model, start, end, maxlen, beam_width, breadth, mode, alpha, device, base = \
             self.model, self.start, self.end, self.maxlen, self.beam_width, \
-            self.breadth, self.mode, self.aplpha, self.base
+            self.breadth, self.mode, self.alpha, self.device, self.base
 
         # create src & tgt tensors shape: src - (1, src_len) tgt - (1, 1)
         ids = np.array(ids, dtype=int)
@@ -203,13 +206,5 @@ def log_score(tensor, alpha=0.6):
     return norm * torch.sum(log_prob, dim=-1, keepdim=True)
             
 if __name__ == "__main__":
-    beam_width = 5
-    maxlen = 10
-    start, end, pad = 1, 2, 0
-    model = Transformer(vocab_enc=100, vocab_dec=100, maxlen=maxlen, pad_id=pad)
-    ids = [1] + [np.random.randint(0, 100) for i in range(maxlen - 2)] + [2]
-    beam = Beam(model, start, end, maxlen, beam_width, breadth=100, mode="best", alpha=0.6)
-    sequence, score = beam(ids)
-    greedy = Greedy(model, start, end, maxlen, alpha=0.6)
-    sequence, score = greedy(ids)
+    pass
 
