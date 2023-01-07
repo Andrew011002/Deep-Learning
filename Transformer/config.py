@@ -18,13 +18,16 @@ dff = 2048
 bias = False
 dropout = 0.1
 eps = 1e-5
+
 # optimizer configurations
 adam_eps = 10e-9
 lr = 1e-5
 betas = (0.9, 0.98)
+
 # scheduler
 factor = 0.9
 patience = 10
+
 # decoder search configurations
 beam_width = 3
 max_breadth = 100
