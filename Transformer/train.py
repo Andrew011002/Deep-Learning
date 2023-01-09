@@ -62,6 +62,7 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None, checkpoi
         # evaluate model (if applicable)
         if verbose:
             output = train_printer(epoch_loss, epoch + 1, clock, bleu, warmup, saved)
+            # write to log file (if applicable)
             if log:
                 overwrite = True if epoch + 1 == 1 else False
                 write(output, log, overwrite=overwrite)
@@ -73,7 +74,7 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None, checkpoi
     net_loss = np.mean(losses).item()
     best_bleu = max(bleus) if bleus else None
     if verbose:
-        train_printer(net_loss, None, clock, best_bleu, None, saved)
+        output = train_printer(net_loss, None, clock, best_bleu, None, saved)
         # write to log file (if applicable)
         if log:
             write(output, log, overwrite=False)
@@ -147,7 +148,7 @@ def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, log=None, device
             saved = checkpoint.check(losses, bleus)
         # display info after end of epoch
         if verbose:
-            train_printer(epoch_loss, epoch + 1, clock, bleu, warmup, saved)
+            output = train_printer(epoch_loss, epoch + 1, clock, bleu, warmup, saved)
             # write to log file (if applicable)
             if log:
                 write(output, log, overwrite=False)
