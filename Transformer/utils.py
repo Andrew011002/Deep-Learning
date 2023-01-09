@@ -332,11 +332,8 @@ def create_path(path):
 
 def write(contents, path, overwrite=False):
     create_path(path)
-    if overwrite:
-        arg = "w"
-    else:
-        arg = "a"
-        contents += "\n"
+    contents += "\n"
+    arg = "w" if overwrite else "a"
     file = open(path, arg)
     file.write(contents)
     file.close()
