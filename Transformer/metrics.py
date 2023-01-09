@@ -4,7 +4,7 @@ from collections import Counter
 
 class Evaluator:
 
-    def __init__(self, dataset, tokenizer, search, sample=32, ngrams=4, bleu_goal=30, mode="geometric"):
+    def __init__(self, dataset, tokenizer, search, sample=32, ngrams=4, goal_bleu=30, mode="geometric"):
         if sample > len(dataset):
             raise ValueError(f"Sample size cannot exceed {len(dataset)}")
         self.dataset = dataset
@@ -12,9 +12,9 @@ class Evaluator:
         self.search = search
         self.sample = sample
         self.ngrams = ngrams
-        self.bleu_goal = bleu_goal
+        self.goal_bleu = goal_bleu
+        self.best_bleu = 0
         self.mode = mode
-        self.bleu = 0
         self.passed = True
 
     def evaluate(self):
@@ -38,11 +38,11 @@ class Evaluator:
 
         # set best bleu score calculated
         net_bleu /= len(predictions)
-        self.bleu = max(net_bleu, self.bleu)
+        self.best_bleu = max(net_bleu, self.best_bleu)
         return net_bleu
 
     def done(self):
-        return self.bleu >= self.bleu_goal
+        return self.best_bleu >= self.goal_bleu
 
 def calc_ngrams_score(prediction, reference, mode="geometric", ngrams=4, sos=None, eos=None):
     # inshape: prediction - (prediction_len, ) reference - (reference_len, )

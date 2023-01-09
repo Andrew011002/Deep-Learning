@@ -3,13 +3,14 @@ import torch.nn as nn
 import numpy as np
 from utils import generate_masks
 
-def train(dataloader, model, optimizer, scheduler=None, evaluator=None, 
-    checkpoint=None, clock=None, epochs=1000, warmups=100, verbose=True, device=None):
+def train(dataloader, model, optimizer, scheduler=None, evaluator=None, checkpoint=None, clock=None, 
+        epochs=1000, warmups=100, verbose=True, device=None):
     # setup
-    loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
     m = len(dataloader)
-    net_loss = curr_bleu = bleu = 0
     saved = done = False
+    loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
+    losses, bleus = [], []
+    bleu = None
     if clock:
         clock.reset()
         clock.start()
@@ -44,32 +45,33 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None,
             # accumulate loss over time
             accum_loss += loss.item()
 
-        # get losses
+        # get losses & keep track
         epoch_loss = accum_loss / m
-        net_loss += epoch_loss
+        losses.append(epoch_loss)
         # apply scheduler after warmups (if applicable)
         warmup = epoch + 1 <= warmups if scheduler else None
         if epoch + 1 > warmups and scheduler:
             scheduler.step(epoch_loss) 
+        if evaluator:
+            bleu = evaluator.evaluate()
+            bleus.append(bleu)
+            done = evaluator.done()
         # check on checkpoint (if applicable)
         if checkpoint:
-            saved = checkpoint.check(net_loss)
+            saved = checkpoint.check(losses, bleus)
         # evaluate model (if applicable)
-        if evaluator:
-            curr_bleu = evaluator.evaluate()
-            done = evaluator.done()
-            bleu = evaluator.bleu
         if verbose:
-            train_printer(epoch_loss, epoch + 1, clock, curr_bleu, warmup, saved)
+            output = train_printer(epoch_loss, epoch + 1, clock, bleu, warmup, saved)
         # model meets bleu score (complete training)
         if done:
             break
 
-    # calc avg train loss
-    net_loss /= epochs 
+    # calc avg train loss & best bleu (if applicable)
+    net_loss = np.mean(losses).item()
+    best_bleu = max(bleus) if bleus else None
     if verbose:
-        train_printer(net_loss, None, clock, bleu, None, saved)
-    return net_loss
+        train_printer(net_loss, None, clock, best_bleu, None, saved)
+    return losses, bleus
 
 def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
     # grab info from checkpoint
@@ -81,14 +83,14 @@ def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
     evaluator = info["evaluator"]
     clock = info["clock"]
     epoch_start = info["epoch"]
-    net_loss = info["loss"]
-    bleu = info["bleu"]
+    losses = info["losses"]
+    bleus = info["bleus"]
 
      # setup
-    loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
     m = len(dataloader)
-    curr_bleu = 0
     saved = done = False
+    loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
+    bleu = None
     if clock:
         clock.start()
     if verbose:
@@ -122,34 +124,34 @@ def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
             # accumulate loss over time
             accum_loss += loss.item()
 
-        # get losses
+        # get losses & keep track
         epoch_loss = accum_loss / m
-        net_loss += epoch_loss
+        losses.append(epoch_loss)
         # apply scheduler after warmups (if applicable)
         warmup = epoch + 1 <= warmups if scheduler else None
         if epoch + 1 > warmups and scheduler:
             scheduler.step(epoch_loss) 
-        # check on checkpoint (if applicable)
-        if checkpoint:
-            saved = checkpoint.check(net_loss)
         # evaluate model (if applicable)
         if evaluator:
-            curr_bleu = evaluator.evaluate()
+            bleu = evaluator.evaluate()
+            bleus.append(bleu)
             done = evaluator.done()
-            bleu = evaluator.bleu
-
+        # check on checkpoint (if applicable)
+        if checkpoint:
+            saved = checkpoint.check(losses, bleus)
         # display info after end of epoch
         if verbose:
-            train_printer(epoch_loss, epoch + 1, clock, curr_bleu, warmup, saved)
+            train_printer(epoch_loss, epoch + 1, clock, bleu, warmup, saved)
         # model meets bleu score (complete training)
         if done:
             break
     
-    # calc avg train loss
-    net_loss /= epochs 
+    # calc avg train loss & best bleu (if applicable)
+    net_loss = np.mean(losses).item()
+    best_bleu = max(bleus) if bleus else None
     if verbose:
-        train_printer(net_loss, None, clock, bleu, None, saved)
-    return net_loss
+        output = train_printer(net_loss, None, clock, best_bleu, None, saved)
+    return losses, bleus
 
 def train_printer(loss, epoch=None, clock=None, bleu=None, warmup=None, saved=None):
     # basic info
@@ -175,8 +177,13 @@ def train_printer(loss, epoch=None, clock=None, bleu=None, warmup=None, saved=No
     # no other info
     else:
         info += "NA |"
-    print(div)
-    print(info)
+    
+    # generate final output
+    output = f"{div}\n{info}"
+    print(output)
+    return output
+    
+    
 
 if __name__ == "__main__":
     pass

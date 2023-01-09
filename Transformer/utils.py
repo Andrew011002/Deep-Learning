@@ -178,12 +178,14 @@ class Checkpoint:
         self.path = path
         self.overwrite = overwrite
         self.epoch = 0
-        self.loss = None
-        self.bleu = None
+        self.losses = None
+        self.bleus = None
+        
 
-    def check(self, loss):
+    def check(self, losses, bleus):
         # save current model state
-        self.loss = loss
+        self.losses = losses
+        self.bleus = bleus
         self.epoch += 1 # update steps taken
         if self.epoch % self.epochs == 0:
             self.save()
@@ -210,7 +212,7 @@ class Checkpoint:
             "optimizer_params": self.optimizer.state_dict(),
             "epoch": self.epoch,
             "epochs": self.epochs,
-            "loss": self.loss,
+            "losses": self.losses,
             "path": self.path,
             "overwrite": self.overwrite,
             # optional
@@ -218,7 +220,7 @@ class Checkpoint:
                 else None,
             "evaluator": self.evaluator if self.evaluator \
                 else None,
-            "bleu": self.evaluator.bleu if self.evaluator \
+            "bleus": self.bleus if self.bleus \
                 else None,
             "duration": self.clock.duration if self.clock \
                 else None
@@ -237,7 +239,7 @@ class Checkpoint:
         self.optimizer.load_state_dict(checkpoint["optimizer_params"])
         self.epoch = checkpoint["epoch"]
         self.epochs = checkpoint["epochs"]
-        self.loss = checkpoint["loss"]
+        self.losses = checkpoint["losses"]
         self.path = checkpoint["path"]
         self.overwrite = checkpoint["overwrite"]
         # overwrite current state of checkpoint (optional)
@@ -245,8 +247,8 @@ class Checkpoint:
             self.scheduler.load_state_dict(checkpoint["scheduler_params"])
         if checkpoint["evaluator"]:
             self.evaluator = checkpoint["evaluator"]
-        if checkpoint["bleu"]:
-            self.bleu = checkpoint["bleu"]
+        if checkpoint["bleus"]:
+            self.bleus = checkpoint["bleus"]
         if checkpoint["duration"] is not None:
             self.clock = Clock(checkpoint["duration"])
         if verbose:
@@ -259,8 +261,8 @@ class Checkpoint:
                 "scheduler": self.scheduler,
                 "evaluator": self.evaluator,
                 "epoch": self.epoch,
-                "loss": self.loss,
-                "bleu": self.bleu,
+                "losses": self.losses,
+                "bleus": self.bleus,
                 "clock": self.clock
                 }
 
