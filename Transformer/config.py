@@ -7,7 +7,7 @@ train_size = 100000
 test_size = 1000
 vocab_size_english = 32000
 vocab_size_german = 32000
-maxlen = 256
+maxlen = 10 # TODO
 batch_size = 128
 
 # model configurations
@@ -36,7 +36,7 @@ alpha = 0.6
 
 # training & metric configurations
 sample_size = 10
-bleu_goal = 23
+goal_bleu = 23
 ngrams = 4
 save_every = 5
 overwrite = False
