@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from utils import generate_masks
+from utils import generate_masks, write
 
 def train(dataloader, model, optimizer, scheduler=None, evaluator=None, checkpoint=None, clock=None, 
-        epochs=1000, warmups=100, verbose=True, device=None):
+        epochs=1000, warmups=100, verbose=True, log=None, device=None):
     # setup
     m = len(dataloader)
     saved = done = False
@@ -62,6 +62,9 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None, checkpoi
         # evaluate model (if applicable)
         if verbose:
             output = train_printer(epoch_loss, epoch + 1, clock, bleu, warmup, saved)
+            if log:
+                overwrite = True if epoch + 1 == 1 else False
+                write(output, log, overwrite=overwrite)
         # model meets bleu score (complete training)
         if done:
             break
@@ -71,9 +74,12 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None, checkpoi
     best_bleu = max(bleus) if bleus else None
     if verbose:
         train_printer(net_loss, None, clock, best_bleu, None, saved)
+        # write to log file (if applicable)
+        if log:
+            write(output, log, overwrite=False)
     return losses, bleus
 
-def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
+def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, log=None, device=None):
     # grab info from checkpoint
     info = checkpoint.state_dict()
     dataloader = info["dataloader"]
@@ -142,6 +148,9 @@ def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
         # display info after end of epoch
         if verbose:
             train_printer(epoch_loss, epoch + 1, clock, bleu, warmup, saved)
+            # write to log file (if applicable)
+            if log:
+                write(output, log, overwrite=False)
         # model meets bleu score (complete training)
         if done:
             break
@@ -151,6 +160,9 @@ def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, device=None):
     best_bleu = max(bleus) if bleus else None
     if verbose:
         output = train_printer(net_loss, None, clock, best_bleu, None, saved)
+        # write to log file (if applicable)
+        if log:
+            write(output, log, overwrite=False)
     return losses, bleus
 
 def train_printer(loss, epoch=None, clock=None, bleu=None, warmup=None, saved=None):

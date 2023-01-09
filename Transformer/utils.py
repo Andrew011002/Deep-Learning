@@ -329,6 +329,14 @@ def create_path(path):
     path = "/".join(path[:-1]) + "/"
     if path and not os.path.exists(path):
         os.makedirs(path)
+
+def write(contents, path, overwrite=False):
+    create_path(path)
+    arg = "w" if overwrite else "a"
+    file = open(path, arg)
+    file.write(contents)
+    file.close()
+
     
 if __name__ == "__main__":
     pass

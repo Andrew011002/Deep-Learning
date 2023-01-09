@@ -43,4 +43,5 @@ overwrite = False
 warmups = 100
 epochs = 1000
 verbose = True
+log = "training.txt"
 
