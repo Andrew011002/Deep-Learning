@@ -10,7 +10,7 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None, checkpoi
     done = False
     loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
     losses, bleus = [], []
-    saved = bleu = None
+    clock_info = saved = bleu = None
     if clock:
         clock.reset()
         clock.start()
@@ -51,10 +51,15 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None, checkpoi
         # get losses & keep track
         epoch_loss = accum_loss / m
         losses.append(epoch_loss)
+        # get times (if applicable)
+        if clock:
+            epoch_time, elapsed_time = clock.tick(), clock.elapsed()
+            clock_info = epoch_time, elapsed_time
         # apply scheduler after warmups (if applicable)
         warmup = epoch + 1 <= warmups if scheduler else None
         if epoch + 1 > warmups and scheduler:
             scheduler.step(epoch_loss) 
+        # evaluate model (if applicable)
         if evaluator:
             bleu = evaluator.evaluate()
             bleus.append(bleu)
@@ -62,9 +67,9 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None, checkpoi
         # check on checkpoint (if applicable)
         if checkpoint:
             saved = checkpoint.check(losses, bleus)
-        # evaluate model (if applicable)
+        # show verbose (if applicable)
         if verbose:
-            output = train_printer(epoch_loss, epoch + 1, clock, bleu, warmup, saved)
+            output = train_printer(epoch_loss, epoch + 1, clock_info, bleu, warmup, saved)
             # write to log file (if applicable)
             if log:
                 write(output, log, overwrite=False)
@@ -76,7 +81,7 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None, checkpoi
     net_loss = np.mean(losses).item()
     best_bleu = max(bleus) if bleus else None
     if verbose:
-        output = train_printer(net_loss, None, clock, best_bleu, None, saved)
+        output = train_printer(net_loss, None, clock_info, best_bleu, None, saved)
         # write to log file (if applicable)
         if log:
             write(output, log, overwrite=False)
@@ -99,7 +104,7 @@ def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, log=None, device
     m = len(dataloader)
     done = False
     loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
-    saved = bleu = None
+    clock_info = saved = bleu = None
     if clock:
         clock.start()
     if verbose:
@@ -139,6 +144,10 @@ def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, log=None, device
         # get losses & keep track
         epoch_loss = accum_loss / m
         losses.append(epoch_loss)
+        # get times (if applicable)
+        if clock:
+            epoch_time, elapsed_time = clock.tick(), clock.elapsed()
+            clock_info = epoch_time, elapsed_time
         # apply scheduler after warmups (if applicable)
         warmup = epoch + 1 <= warmups if scheduler else None
         if epoch + 1 > warmups and scheduler:
@@ -151,9 +160,9 @@ def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, log=None, device
         # check on checkpoint (if applicable)
         if checkpoint:
             saved = checkpoint.check(losses, bleus)
-        # display info after end of epoch
+        # show verbose (if applicable)
         if verbose:
-            output = train_printer(epoch_loss, epoch + 1, clock, bleu, warmup, saved)
+            output = train_printer(epoch_loss, epoch + 1, clock_info, bleu, warmup, saved)
             # write to log file (if applicable)
             if log:
                 write(output, log, overwrite=False)
@@ -165,20 +174,21 @@ def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, log=None, device
     net_loss = np.mean(losses).item()
     best_bleu = max(bleus) if bleus else None
     if verbose:
-        output = train_printer(net_loss, None, clock, best_bleu, None, saved)
+        output = train_printer(net_loss, None, clock_info, best_bleu, None, saved)
         # write to log file (if applicable)
         if log:
             write(output, log, overwrite=False)
     return losses, bleus
 
-def train_printer(loss, epoch=None, clock=None, bleu=None, warmup=None, saved=None):
+def train_printer(loss, epoch=None, clock_info=None, bleu=None, warmup=None, saved=None):
     # basic info
     div = f"{'-' * 79}"
     info = f"Epoch {epoch} Complete | " if epoch else "Training Complete | "
     # time info
-    if clock:
-        info += f"Epoch Duration: {clock.epoch()} | " if epoch else ""
-        info += f"Elapsed Training Time: {clock.elapsed()} |"
+    if clock_info:
+        epoch_time, elapsed_time = clock_info
+        info += f"Epoch Duration: {epoch_time} | " if epoch else ""
+        info += f"Elapsed Training Time: {elapsed_time} |"
     info += "\n"
     # metrics
     info += f"Metrics | Epoch Loss: {loss:.4f} | " if epoch else f"Metrics | Training Loss: {loss:.4f} | "

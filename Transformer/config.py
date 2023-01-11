@@ -7,7 +7,7 @@ train_size = 100000
 test_size = 1000
 vocab_size_english = 32000
 vocab_size_german = 32000
-maxlen = 10 # TODO
+maxlen = 256
 batch_size = 128
 
 # model configurations

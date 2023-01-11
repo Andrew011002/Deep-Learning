@@ -281,7 +281,7 @@ class Clock:
         self.duration += elapsed
         return self.to_hour_min_sec(elapsed)
     
-    def epoch(self):
+    def tick(self):
         now = time.time()
         h, m, s = self.clock(self.current, now)
         return self.asstr(h, m, s)
