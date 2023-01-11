@@ -7,15 +7,18 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None, checkpoi
         epochs=1000, warmups=100, verbose=True, log=None, device=None):
     # setup
     m = len(dataloader)
-    saved = done = False
+    done = False
     loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
     losses, bleus = [], []
-    bleu = None
+    saved = bleu = None
     if clock:
         clock.reset()
         clock.start()
     if verbose:
-        print("Training Started")
+        output = f"{'-' * 79}\nTraining Started"
+        print(output)
+        if log is not None:
+            write(output, log, overwrite=True)
 
     # train over epochs
     for epoch in range(epochs):
@@ -64,8 +67,7 @@ def train(dataloader, model, optimizer, scheduler=None, evaluator=None, checkpoi
             output = train_printer(epoch_loss, epoch + 1, clock, bleu, warmup, saved)
             # write to log file (if applicable)
             if log:
-                overwrite = True if epoch + 1 == 1 else False
-                write(output, log, overwrite=overwrite)
+                write(output, log, overwrite=False)
         # model meets bleu score (complete training)
         if done:
             break
@@ -95,13 +97,16 @@ def retrain(checkpoint, epochs=1000, warmups=100, verbose=True, log=None, device
 
      # setup
     m = len(dataloader)
-    saved = done = False
+    done = False
     loss_fn = nn.CrossEntropyLoss(ignore_index=model.pad_id)
-    bleu = None
+    saved = bleu = None
     if clock:
         clock.start()
     if verbose:
-        print("Training Resumed")
+        output = f"{'-' * 79}\nTraining Resumed"
+        print(output)
+        if log is not None:
+            write(output, log, overwrite=False)
 
     # train over epochs
     for epoch in range(epoch_start, epochs):

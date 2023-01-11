@@ -338,7 +338,6 @@ def write(contents, path, overwrite=False):
     file.write(contents)
     file.close()
 
-    
 if __name__ == "__main__":
     pass
 
