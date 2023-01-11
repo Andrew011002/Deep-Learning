@@ -75,10 +75,10 @@ class Greedy(DecoderSearch):
 
         # predict best token given source
         sequence, score = greedy_search(model, src, (tgt, base), end, maxlen, 
-                                        alpha=alpha, mask=mask)
+                                        alpha=alpha, mask=mask, device=device)
         return sequence, score
 
-def greedy_search(model, input, candidate, end, maxlen, alpha=0.6, mask=None):
+def greedy_search(model, input, candidate, end, maxlen, alpha=0.6, mask=None, device=None):
     # inshape: input - (1, input_len) 
 
     # setup
@@ -87,6 +87,9 @@ def greedy_search(model, input, candidate, end, maxlen, alpha=0.6, mask=None):
 
     # shape: output & score - (1, 1)
     output, score = candidate
+    # move to device
+    output = output.to(device)
+    score = score.to(device)
 
     # auto-regress until end is predicted or output reaches maximum length
     while output[:, -1].item() != end and output.size(1) != maxlen:
@@ -139,7 +142,7 @@ class Beam(DecoderSearch):
 
         # search beams until populated
         searches = beam_search(model, src, (tgt, base), end, maxlen, beam_width, 
-                                max_breadth=breadth, alpha=alpha, mask=mask)
+                                max_breadth=breadth, alpha=alpha, mask=mask, device=device)
         # get topk beams & scores
         searches = sorted(searches, reverse=True, key=lambda cand: cand[1].item())[:beam_width]
 
@@ -159,7 +162,7 @@ class Beam(DecoderSearch):
         return sequence, score
                 
 def beam_search(model, input, candidate, end, maxlen, beam_width=3, searches=[], 
-                max_breadth=100, alpha=0.6, mask=None):
+                max_breadth=100, alpha=0.6, mask=None, device=None):
     # inshape: input - (1, input_len)
 
     # setup
@@ -172,6 +175,10 @@ def beam_search(model, input, candidate, end, maxlen, beam_width=3, searches=[],
 
     # shape: output & score - (1, output_len)
     output, score = candidate
+    # move to device
+    output = output.to(device)
+    score = score.to(device)
+    
     # base cases (predicted eos or up to maximum length)
     if output[:, -1].item() == end or output.size(1) == maxlen:
         # store beam & score

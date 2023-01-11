@@ -5,8 +5,8 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # data configurations
 train_size = 100000
 test_size = 1000
-vocab_size_english = 32000
-vocab_size_german = 32000
+vocab_size_english = 25000
+vocab_size_german = 25000
 maxlen = 256
 batch_size = 128
 
